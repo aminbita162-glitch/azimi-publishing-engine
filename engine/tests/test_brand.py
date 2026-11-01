@@ -23,6 +23,7 @@ class BrandTests(unittest.TestCase):
         self.folder.mkdir()
         (self.folder / "brand.yaml").write_text(YAML, encoding="utf-8")
         make_logo(self.folder / "logo.png")
+        (self.folder / "rights.md").write_text("# Rights and License\n\nAll rights reserved.\n", encoding="utf-8")
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -45,6 +46,14 @@ class BrandTests(unittest.TestCase):
                 (self.folder / "brand.yaml").write_text(YAML + f"tagline: {bad}\n", encoding="utf-8")
                 with self.assertRaisesRegex(ConfigError, "tagline"):
                     load_brand(self.root, "azimi")
+
+    def test_rights_text_is_mandatory(self):
+        (self.folder / "rights.md").unlink()
+        with self.assertRaisesRegex(ConfigError, "rights.md is missing"):
+            load_brand(self.root, "azimi")
+
+    def test_rights_text_is_exposed(self):
+        self.assertEqual(load_brand(self.root, "azimi").rights_path.name, "rights.md")
 
     def test_logo_too_narrow(self):
         make_logo(self.folder / "logo.png", width=999)

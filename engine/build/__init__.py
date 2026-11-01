@@ -1,6 +1,5 @@
 """Content parsing and build orchestration."""
 
-from .builder import BuildResult, build_document
 from .parser import (
     Block,
     Callout,
@@ -17,8 +16,6 @@ from .parser import (
 
 __all__ = [
     "Block",
-    "BuildResult",
-    "build_document",
     "BulletList",
     "Callout",
     "Code",

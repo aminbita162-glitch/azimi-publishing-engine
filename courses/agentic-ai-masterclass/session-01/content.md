@@ -56,8 +56,6 @@ To run your tests, open a terminal in the folder that holds the file and run the
 python3 -m unittest -v
 ~~~
 
-NOTE: The educational code in this session is an adaptation made for teaching. It makes no claim of commercial deployment and gives no guarantee of production security.
-
 # The Core Idea
 
 ## The problem in one paragraph
@@ -66,7 +64,7 @@ Imagine a coding agent or a specialist agent that reads a service and concludes 
 
 In an existing system, the output of an agent is only a **change proposal**. It is not a permit to apply a patch, run a migration, change production settings, or read another tenant's data. The point where agent design meets multi-agent architecture and layered guardrails is one explicit contract: the contract between **proposal**, **approval** and **execution**.
 
-**Checkpoint.** If an agent says "I approved it myself", which trust boundary has been broken? Write your answer in one sentence before you continue.
+CHECKPOINT: If an agent says "I approved it myself", which trust boundary has been broken? Write your answer in one sentence before you continue.
 
 ## Three core terms
 
@@ -86,7 +84,7 @@ The fixed example used throughout this session:
 - **Approval.** A trusted authority approves proposal `P-001` for a specific digest, a specific tenant and target, with the authority of a named approver and a valid expiration time. The agent must not be able to forge the approver identifier or the authoritative record.
 - **Execution.** When execution is requested, the system re-checks the same conditions. Only if the request is authorized and the revision still matches can a local transaction change the state and consume the approval.
 
-**Checkpoint.** An approval was valid yesterday but has expired today. Is the proposal still executable?
+CHECKPOINT: An approval was valid yesterday but has expired today. Is the proposal still executable?
 
 ## Two outcome families that must not be mixed
 
@@ -107,7 +105,7 @@ Suppose the gate permits execution, and the connection to an external service dr
 
 A digest is a fingerprint of content. It can reveal that a proposal has changed, but only when it is compared with a value held by a trusted authority. A digest does not prove who approved anything.
 
-**Checkpoint.** If the agent can change both the proposal and the stored digest, what guarantee remains?
+CHECKPOINT: If the agent can change both the proposal and the stored digest, what guarantee remains?
 
 # Architecture and Threats
 
@@ -146,7 +144,7 @@ WARNING: The educational SQLite state only simulates the configuration revision.
 - **B - TAMPERED.** After approval, the value 5 is changed to 9. The digest no longer matches. The result is DENY and the state does not change.
 - **C - STALE.** The proposal is the same, but the current revision has become 4. The result is REVALIDATION_REQUIRED and the state does not change. A new proposal on the fresh revision, a new digest and a new valid approval are required. The old approval must not be reused.
 
-**Checkpoint.** For each path, first state the gate result, and then, separately, the possible execution result and the reason.
+CHECKPOINT: For each path, first state the gate result, and then, separately, the possible execution result and the reason.
 
 # Building the Contract in Python
 
@@ -178,7 +176,6 @@ class GateDecision(str, Enum):
     DENY = 'DENY'
     REVALIDATION_REQUIRED = 'REVALIDATION_REQUIRED'
 
-
 class ExecutionResult(str, Enum):
     SUCCEEDED = 'SUCCEEDED'
     FAILED = 'FAILED'
@@ -199,7 +196,7 @@ class Proposal:
 
 The `frozen=True` option stops ordinary reassignment of the attributes. It is not proof of identity, validity of the data, or permission to execute.
 
-**Checkpoint.** If only the value is changed to 9, is the previous approval still valid? It is not: the proposal has changed, so the digest match and every approval condition must be checked again.
+CHECKPOINT: If only the value is changed to 9, is the previous approval still valid? It is not: the proposal has changed, so the digest match and every approval condition must be checked again.
 
 ## Step 2: Validating the shape of the data
 
@@ -480,7 +477,7 @@ function evaluate(proposal, approval, trusted_authority, trusted_now, current_re
 
 First the shape of the data and the policy are checked. Then the existence and status of the approval, the digest binding, the scope of tenant and operation, the expiration and the approver's authority are assessed. Only after that is the current revision compared with the proposal's revision. If all controls succeed, ALLOW is permission to attempt execution. The success of the change is not yet proven.
 
-**Checkpoint.** The proposed value is still 5, but the current revision has become 4. Why is the output not DENY? Because, assuming the earlier controls pass, the only thing that changed is the state, so the answer is REVALIDATION_REQUIRED.
+CHECKPOINT: The proposed value is still 5, but the current revision has become 4. Why is the output not DENY? Because, assuming the earlier controls pass, the only thing that changed is the state, so the answer is REVALIDATION_REQUIRED.
 
 NOTE: This pseudocode is not a TypeScript implementation. The runtime, the validator, the exact digest serialization, the trusted store, the atomic transaction, the consumption of the approval and the audit record are not shown in it. Equivalence of execution between Python and TypeScript has not been proven.
 
@@ -636,7 +633,7 @@ A good engineer separates what was observed from what may be claimed and from wh
 
 Identity assurance, management of authorities, multi-process concurrency, transaction durability, audit retention, distributed effects and resolution of the UNKNOWN state each need their own evaluation and their own evidence.
 
-**Checkpoint.** If a SQLite test succeeds, can we say that a file change in the operating system is also atomic? No. These are two different test scopes.
+CHECKPOINT: If a SQLite test succeeds, can we say that a file change in the operating system is also atomic? No. These are two different test scopes.
 
 ## Decision table for the fixed scenarios
 
@@ -755,36 +752,3 @@ Explain one decision path from this session out loud, with its reason, rather th
 For the replay scenario, state the difference between *consuming one approval* and *preventing the repeated execution of a proposal*. If your answer ignores the boundary of the SQLite transaction and of external side effects, revisit the section on what the code does and does not prove.
 
 **Next session.** Session 02 - Proposal Contract and Structured Output.
-
-# Rights and License
-
-## Copyright and ownership
-
-Copyright (c) 2026 Amin Azimi. All rights reserved.
-
-Author: Amin Azimi, AI Architect, End-to-End System Development and Business Challenges. Publisher: Azimi Innovation Lab.
-
-All content in this document, including the text, structure, diagrams, tables, exercises, answer key and the educational code, is the exclusive intellectual property of the author and publisher.
-
-## What the purchaser may do
-
-- Read and study this document for personal learning.
-- Run and modify the educational code for personal learning on your own machines.
-- Quote short excerpts with clear attribution to the author and this document in your own notes.
-
-## What is not permitted
-
-- Copying, sharing, lending, redistributing or republishing this document or substantial parts of it in any form, free or paid.
-- Selling it, or using it as part of a paid or commercial product, course, training or service, without prior written permission of the publisher.
-- Removing the author attribution or this rights section.
-- Presenting this work or derivatives of it under another name or brand.
-
-## Third-party material and warranty
-
-Short excerpts from the author's repositories are identified and pinned in Part 6 and in the provenance register, and they remain subject to the license of the repository they come from. Third-party standards, libraries and websites referenced here remain subject to their own licenses.
-
-The educational code and all examples are provided as is, without warranty of any kind. They make no claim of fitness for production use, security guarantees or commercial deployment.
-
-## Permission requests
-
-Requests for any use beyond the scope stated above may be directed to the publisher through the platform on which this document was obtained.

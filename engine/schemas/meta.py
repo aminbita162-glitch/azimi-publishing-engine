@@ -13,7 +13,7 @@ import yaml
 from ..errors import ConfigError
 
 REQUIRED_KEYS = ("title", "author", "audience", "language", "version", "date", "output_name")
-OPTIONAL_KEYS = ("subtitle", "brand")
+OPTIONAL_KEYS = ("subtitle", "brand", "chapter_pages")
 DEFAULT_BRAND = "default"
 
 _LANGUAGE = re.compile(r"^[a-z]{2,3}(-[A-Z]{2})?$")
@@ -39,6 +39,7 @@ class Meta:
     output_name: str
     subtitle: Optional[str] = None
     brand: str = DEFAULT_BRAND
+    chapter_pages: bool = False
 
     @property
     def epoch(self) -> int:
@@ -98,7 +99,13 @@ def parse_meta(data: Any) -> Meta:
             raise ConfigError("meta.yaml: brand must be lowercase letters, digits and hyphens")
 
     subtitle = _text(data, "subtitle") if "subtitle" in data else None
-    return Meta(subtitle=subtitle, brand=brand, **values)
+
+    chapter_pages = False
+    if "chapter_pages" in data:
+        chapter_pages = data["chapter_pages"]
+        if not isinstance(chapter_pages, bool):
+            raise ConfigError("meta.yaml: chapter_pages must be true or false")
+    return Meta(subtitle=subtitle, brand=brand, chapter_pages=chapter_pages, **values)
 
 
 def load_meta(path: Union[str, Path]) -> Meta:

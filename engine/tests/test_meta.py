@@ -70,6 +70,14 @@ class ParseMetaTests(unittest.TestCase):
                 with self.assertRaisesRegex(ConfigError, "version"):
                     parse_meta(dict(VALID, version=bad))
 
+    def test_chapter_pages_option(self):
+        self.assertFalse(parse_meta(dict(VALID)).chapter_pages)
+        self.assertTrue(parse_meta(dict(VALID, chapter_pages=True)).chapter_pages)
+        for bad in ("yes", 1, None):
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(ConfigError, "chapter_pages"):
+                    parse_meta(dict(VALID, chapter_pages=bad))
+
     def test_bad_date(self):
         for bad in ("2026", "Nov 2026", "November 12, 2026", "november 2026", "Smarch 2026"):
             with self.subTest(bad=bad):

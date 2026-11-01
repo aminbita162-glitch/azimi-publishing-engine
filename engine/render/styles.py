@@ -28,7 +28,7 @@ CODE_LEADING = 11.6
 CODE_PADDING_LEFT = 12
 CODE_PADDING_RIGHT = 8
 CODE_PADDING_VERTICAL = 9
-CODE_CHUNK_LINES = 12
+CODE_CHUNK_LINES = 8
 
 TEXT = colors.HexColor("#1F2933")
 MUTED = colors.HexColor("#5F6B7A")
@@ -36,6 +36,17 @@ RULE = colors.HexColor("#D5DBE3")
 ZEBRA = colors.HexColor("#F4F6F8")
 CODE_BACKGROUND = colors.HexColor("#F4F6F8")
 WARNING = colors.HexColor("#B42318")
+TIP = colors.HexColor("#0F766E")
+CHECKPOINT = colors.HexColor("#1D6FA5")
+GUTTER_BACKGROUND = colors.HexColor("#E9EDF2")
+
+CODE_COLORS = {
+    "k": "#0B2A43",
+    "f": "#0B2A43",
+    "s": "#0F766E",
+    "c": "#5F6B7A",
+    "n": "#9A4A06",
+}
 
 ALIGNMENT = {"left": TA_LEFT, "center": TA_CENTER, "right": TA_RIGHT}
 
@@ -70,6 +81,7 @@ class Styles:
     h3: ParagraphStyle
     code: ParagraphStyle
     code_label: ParagraphStyle
+    code_number: ParagraphStyle
     caption: ParagraphStyle
     table_cell: ParagraphStyle
     table_header: ParagraphStyle
@@ -81,6 +93,10 @@ class Styles:
     cover_meta: ParagraphStyle
     cover_meta_label: ParagraphStyle
     cover_tagline: ParagraphStyle
+    imprint_title: ParagraphStyle
+    imprint_subtitle: ParagraphStyle
+    imprint_label: ParagraphStyle
+    imprint_text: ParagraphStyle
     toc_title: ParagraphStyle
     toc1: ParagraphStyle
     toc2: ParagraphStyle
@@ -102,7 +118,7 @@ def build_styles(brand: Brand) -> Styles:
     list_item = ParagraphStyle("ListItem", parent=body, spaceAfter=3)
     h1 = ParagraphStyle(
         "H1", parent=body, fontName="Body-Bold", fontSize=26, leading=31, textColor=primary,
-        spaceBefore=0, spaceAfter=14, keepWithNext=1,
+        spaceBefore=30, spaceAfter=14, keepWithNext=1,
     )
     h2 = ParagraphStyle(
         "H2", parent=body, fontName="Body-Bold", fontSize=17, leading=22, textColor=primary,
@@ -118,6 +134,9 @@ def build_styles(brand: Brand) -> Styles:
     code_label = ParagraphStyle(
         "CodeLabel", fontName="Mono-Bold", fontSize=7.5, leading=10, textColor=accent,
         spaceBefore=8, spaceAfter=5, keepWithNext=1,
+    )
+    code_number = ParagraphStyle(
+        "CodeNumber", fontName="Mono", fontSize=CODE_SIZE, leading=CODE_LEADING, textColor=MUTED,
     )
     caption = ParagraphStyle(
         "Caption", parent=body, fontName="Body-Italic", fontSize=9, leading=12, textColor=MUTED,
@@ -150,6 +169,17 @@ def build_styles(brand: Brand) -> Styles:
     cover_tagline = ParagraphStyle(
         "CoverTagline", parent=body, fontSize=9.5, leading=13, textColor=MUTED, spaceBefore=10, spaceAfter=0,
     )
+    imprint_title = ParagraphStyle(
+        "ImprintTitle", parent=body, fontName="Body-Bold", fontSize=18, leading=23, textColor=primary, spaceAfter=4,
+    )
+    imprint_subtitle = ParagraphStyle(
+        "ImprintSubtitle", parent=body, fontSize=11.5, leading=16, textColor=MUTED, spaceAfter=10,
+    )
+    imprint_label = ParagraphStyle(
+        "ImprintLabel", parent=body, fontName="Body-Bold", fontSize=8, leading=11, textColor=accent,
+        spaceBefore=12, spaceAfter=1,
+    )
+    imprint_text = ParagraphStyle("ImprintText", parent=body, fontSize=10, leading=14.5, spaceAfter=2)
     toc_title = ParagraphStyle("TocTitle", parent=h1, spaceAfter=18)
     toc1 = ParagraphStyle(
         "Toc1", parent=body, fontName="Body-Bold", fontSize=11.5, leading=16, spaceBefore=7, spaceAfter=0,
@@ -161,10 +191,11 @@ def build_styles(brand: Brand) -> Styles:
 
     return Styles(
         primary=primary, accent=accent, on_primary=readable_on(primary), body=body, body_keep=body_keep, list_item=list_item, h1=h1, h2=h2, h3=h3,
-        code=code, code_label=code_label, caption=caption, table_cell=table_cell,
+        code=code, code_label=code_label, code_number=code_number, caption=caption, table_cell=table_cell,
         table_header=table_header, callout_text=callout_text, callout_label=callout_label,
         warning_label=warning_label, cover_title=cover_title, cover_subtitle=cover_subtitle,
         cover_meta=cover_meta, cover_meta_label=cover_meta_label, cover_tagline=cover_tagline,
-        toc_title=toc_title,
+        imprint_title=imprint_title, imprint_subtitle=imprint_subtitle, imprint_label=imprint_label,
+        imprint_text=imprint_text, toc_title=toc_title,
         toc1=toc1, toc2=toc2,
     )

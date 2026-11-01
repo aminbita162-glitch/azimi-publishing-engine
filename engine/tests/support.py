@@ -59,6 +59,20 @@ More text.
 """
 
 
+RIGHTS = """# Rights and License
+
+Copyright (c) 2026 The Publisher. All rights reserved.
+
+## What is permitted
+
+- Reading and studying this document for personal learning.
+
+## What is not permitted
+
+- Copying or redistributing this document.
+"""
+
+
 def make_logo(path: Path) -> None:
     image = Image.new("RGBA", (1600, 480), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -86,6 +100,7 @@ def make_project(base: Path, content: str = CONTENT, meta: str = META, with_imag
         encoding="utf-8",
     )
     make_logo(brand / "logo.png")
+    (brand / "rights.md").write_text(RIGHTS, encoding="utf-8")
     document = root / "courses" / "doc"
     (document / "assets").mkdir(parents=True)
     (document / "meta.yaml").write_text(meta, encoding="utf-8")

@@ -13,6 +13,36 @@ from ..errors import ContentError
 
 _TAG = re.compile(r"<[^>]+>")
 
+LINK_COLOR = "#0B5CAD"
+_TLDS = "com|org|net|io|dev|ai|app|edu|gov"
+_URL = re.compile(
+    r"(?<![\w@./-])(?:https?://[^\s<>\"'`]+|(?:[A-Za-z0-9-]+\.)+(?:" + _TLDS + r")(?:/[^\s<>\"'`]*)?)"
+)
+_TRAILING = ".,;:!?)]}"
+
+
+def _link_spans(text: str) -> List[tuple]:
+    """Return (start, end, url) for every address in text, ignoring inline code."""
+    masked = list(text)
+    inside = False
+    for index, char in enumerate(text):
+        if char == "`":
+            inside = not inside
+            masked[index] = " "
+        elif inside:
+            masked[index] = " "
+    spans = []
+    for match in _URL.finditer("".join(masked)):
+        start, end = match.start(), match.end()
+        while end > start and text[end - 1] in _TRAILING:
+            end -= 1
+        label = text[start:end]
+        if "*" in label or "_" in label.split("/")[0]:
+            continue
+        url = label if label.lower().startswith(("http://", "https://")) else "https://" + label
+        spans.append((start, end, url))
+    return spans
+
 
 def _escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -24,9 +54,18 @@ def to_markup(text: str, line: Optional[int] = None) -> str:
     stack: List[str] = []
     index = 0
     size = len(text)
+    links = {start: (end, url) for start, end, url in _link_spans(text)}
 
     while index < size:
         char = text[index]
+
+        if index in links:
+            end, url = links[index]
+            label = _escape(text[index:end])
+            href = url.replace("&", "&amp;")
+            out.append(f'<a href="{href}" color="{LINK_COLOR}">{label}</a>')
+            index = end
+            continue
 
         if char == "`":
             end = text.find("`", index + 1)

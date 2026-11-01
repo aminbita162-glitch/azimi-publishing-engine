@@ -6,3 +6,5 @@
 | T-009 | November 2026 | Brand | Default brand loads with the header logo (transparent PNG, width within limits) | engine.brand.load_brand output | PASS |
 | T-010 | November 2026 | Course code | Session 01 reference code: eleven unit tests kept as course source (valid, tampered, stale, replay, tenant, expiry, approver, rollback, boolean, allowlist, digest) | python3 -m unittest -v tests.test_session01_reference | PASS |
 | T-011 | November 2026 | Document | Session 01 PDF: build, page-by-page visual review, delivery checksum match | build manifest and delivery checksum | PASS |
+| T-012 | November 2026 | Engine | Layout engine, audit A1-A8, syntax coloring, boxes, links, imprint, mandatory rights chapter, reproducibility check | python3 -m unittest discover output | PASS |
+| T-013 | November 2026 | Document | Session 01 v1.1.0: build, audit PASS, delivery checksum match | build manifest and delivery checksum | PASS |

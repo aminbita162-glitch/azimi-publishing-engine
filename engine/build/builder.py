@@ -14,13 +14,14 @@ from typing import Dict, Union
 import reportlab
 
 from .. import __version__
+from ..audit import AuditReport, audit_pdf
 from ..brand import load_brand
-from ..errors import ConfigError, ContentError
+from ..errors import ConfigError, ContentError, EngineError
 from ..paths import resolve_inside
-from ..render.document import render_document
+from ..render.document import render_document, validate_inline
 from ..render.fonts import register_fonts
 from ..schemas.meta import load_meta
-from .parser import parse
+from .parser import Heading, parse
 
 MAX_CONTENT_BYTES = 2 * 1024 * 1024
 BUILD_DIR = "build"
@@ -35,6 +36,7 @@ class BuildResult:
     manifest_path: Path
     sha256: str
     pages: int
+    audit: AuditReport
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -79,14 +81,30 @@ def build_document(project_root: Union[str, Path], document_dir: Union[str, Path
     blocks = parse(content_text)
 
     brand = load_brand(root / "brand", meta.brand)
+    try:
+        rights_blocks = parse(brand.rights_path.read_text(encoding="utf-8"))
+        validate_inline(rights_blocks)
+    except UnicodeDecodeError as exc:
+        raise ContentError("rights.md is not valid UTF-8") from exc
+    except ContentError as exc:
+        raise ContentError(f"in rights.md of brand {brand.name}, {exc}") from exc
+    if not any(isinstance(block, Heading) for block in rights_blocks):
+        raise ContentError(f"rights.md of brand {brand.name} must start with a level 1 heading")
+
     font_checksums = register_fonts(root / "design-system" / "fonts")
-    result = render_document(blocks, meta, brand, folder)
+    result = render_document(blocks, meta, brand, folder, rights_blocks)
+    again = render_document(blocks, meta, brand, folder, rights_blocks)
+    if again.pdf != result.pdf:
+        raise EngineError("the document is not reproducible: two builds of the same input differ")
+
+    audit = audit_pdf(result.pdf, meta, result.exempt_pages)
 
     inputs: Dict[str, str] = {
         "content.md": sha256_file(content_path),
         "meta.yaml": sha256_file(folder / "meta.yaml"),
         f"brand/{brand.name}/brand.yaml": sha256_file(brand.logo_path.parent / "brand.yaml"),
         f"brand/{brand.name}/logo.png": sha256_file(brand.logo_path),
+        f"brand/{brand.name}/rights.md": sha256_file(brand.rights_path),
     }
     for relative in sorted(set(result.images)):
         inputs[relative] = sha256_file(resolve_inside(folder, relative))
@@ -114,8 +132,12 @@ def build_document(project_root: Union[str, Path], document_dir: Union[str, Path
         "fonts": font_checksums,
         "inputs": dict(sorted(inputs.items())),
         "output": {"file": file_name, "sha256": pdf_hash, "bytes": len(result.pdf), "pages": result.pages},
+        "reproducible": True,
+        "audit": audit.to_dict(),
     }
 
     _atomic_write(pdf_path, result.pdf)
     _atomic_write(manifest_path, (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"))
-    return BuildResult(pdf_path=pdf_path, manifest_path=manifest_path, sha256=pdf_hash, pages=result.pages)
+    return BuildResult(
+        pdf_path=pdf_path, manifest_path=manifest_path, sha256=pdf_hash, pages=result.pages, audit=audit
+    )

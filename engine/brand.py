@@ -16,6 +16,7 @@ from .paths import resolve_inside
 MIN_LOGO_WIDTH = 1000
 MAX_LOGO_WIDTH = 8000
 MAX_LOGO_BYTES = 8 * 1024 * 1024
+MAX_RIGHTS_BYTES = 64 * 1024
 
 _NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -33,6 +34,7 @@ class Brand:
     accent_color: str
     logo_path: Path
     logo_size: Tuple[int, int]
+    rights_path: Path
     tagline: Optional[str] = None
 
 
@@ -101,6 +103,12 @@ def load_brand(brand_root: Union[str, Path], name: str) -> Brand:
             raise ConfigError("brand: tagline must be non-empty text of at most 200 characters")
         tagline = tagline.strip()
 
+    rights_path = resolve_inside(folder, "rights.md")
+    if not rights_path.is_file():
+        raise ConfigError("brand: rights.md is missing; every document carries the rights and license text")
+    if rights_path.stat().st_size > MAX_RIGHTS_BYTES:
+        raise ConfigError("brand: rights.md is larger than 64 KB")
+
     logo_path = resolve_inside(folder, "logo.png")
     size = _validate_logo(logo_path)
     return Brand(
@@ -110,5 +118,6 @@ def load_brand(brand_root: Union[str, Path], name: str) -> Brand:
         accent_color=data["accent_color"].upper(),
         logo_path=logo_path,
         logo_size=size,
+        rights_path=rights_path,
         tagline=tagline,
     )

@@ -21,7 +21,8 @@ _NUMBERED = re.compile(r"^\d+\. +(\S.*)$")
 _FENCE_LANG = re.compile(r"^[A-Za-z0-9_+.#-]+$")
 _TABLE_SEPARATOR_CELL = re.compile(r"^:?-+:?$")
 _HTML = re.compile(r"</?[A-Za-z!]")
-_CALLOUT = re.compile(r"^(NOTE|WARNING):\s*(\S.*)$", re.DOTALL)
+CALLOUT_KINDS = ("NOTE", "WARNING", "TIP", "KEY", "CHECKPOINT")
+_CALLOUT = re.compile(r"^(" + "|".join(CALLOUT_KINDS) + r"):\s*(\S.*)$", re.DOTALL)
 
 
 @dataclass(frozen=True)

@@ -98,6 +98,15 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(blocks[0], Callout(line=1, kind="NOTE", text="Remember this."))
         self.assertEqual(blocks[1], Callout(line=3, kind="WARNING", text="Be careful."))
 
+    def test_all_callout_kinds(self):
+        for kind in ("NOTE", "WARNING", "TIP", "KEY", "CHECKPOINT"):
+            with self.subTest(kind=kind):
+                block = parse(f"{kind}: Text of the box.\n")[0]
+                self.assertEqual(block, Callout(line=1, kind=kind, text="Text of the box."))
+
+    def test_unknown_callout_label_is_plain_text(self):
+        self.assertIsInstance(parse("DANGER: not a box.\n")[0], Paragraph)
+
     def test_page_break(self):
         blocks = parse("A\n\nPAGEBREAK\n\nB\n")
         self.assertIsInstance(blocks[1], PageBreak)

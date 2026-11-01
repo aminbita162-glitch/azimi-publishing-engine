@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 - November 2026
+
+- Continuous chapter flow with conditional page breaks; no half-empty pages
+- Executable audit A1 to A8 on every build, written into the manifest, exit status 3 on failure
+- Every build renders twice and fails if the two results differ
+- Code colored by a built-in deterministic scanner, with line numbers
+- Boxes: note, warning, tip, key point and checkpoint
+- Clickable web addresses, running chapter header, page X of Y
+- Cover redesign, imprint page, mandatory Rights and License chapter supplied by the brand
+- Flexible figures that shrink to fit before moving to the next page
+
 ## 0.2.1 - November 2026
 
 - Code blocks drawn as framed panels that flow across pages

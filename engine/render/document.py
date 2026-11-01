@@ -11,15 +11,19 @@ import io
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from PIL import Image as PILImage
 from reportlab import rl_config
 from reportlab.lib import colors
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.platypus import (
     BaseDocTemplate,
+    CondPageBreak,
+    Flowable,
     Frame,
     HRFlowable,
     Image,
@@ -30,8 +34,8 @@ from reportlab.platypus import (
     PageBreak,
     PageTemplate,
     Paragraph,
-    Preformatted,
     Spacer,
+    XPreformatted,
     Table,
     TableStyle,
 )
@@ -50,20 +54,26 @@ from ..build.parser import (
     Paragraph as ParagraphBlock,
     Table as TableBlock,
 )
-from ..errors import ConfigError, ContentError
+from .. import __version__
+from ..errors import ConfigError, ContentError, EngineError
 from ..paths import resolve_inside
 from ..schemas.meta import Meta
 from .fonts import check_glyphs
+from .highlight import NUMBERED_LANGUAGES, PLAIN, classify, normalize_language
+from .highlight import to_markup as highlight_markup
 from .inline import to_markup, to_plain
 from .styles import (
+    CHECKPOINT,
     CODE_BACKGROUND,
     CODE_CHUNK_LINES,
+    CODE_COLORS,
     CODE_PADDING_LEFT,
     CODE_PADDING_RIGHT,
     CODE_PADDING_VERTICAL,
     CODE_SIZE,
     CONTENT_HEIGHT,
     CONTENT_WIDTH,
+    GUTTER_BACKGROUND,
     MARGIN_BOTTOM,
     MARGIN_LEFT,
     MARGIN_RIGHT,
@@ -72,6 +82,7 @@ from .styles import (
     PAGE_HEIGHT,
     PAGE_WIDTH,
     RULE,
+    TIP,
     WARNING,
     ZEBRA,
     Styles,
@@ -80,7 +91,14 @@ from .styles import (
 )
 
 DEFAULT_IMAGE_DPI = 150.0
-MAX_IMAGE_HEIGHT = CONTENT_HEIGHT * 0.6
+MAX_IMAGE_HEIGHT = CONTENT_HEIGHT * 0.36
+MIN_FIGURE_SCALE = 0.75
+MIN_LAST_CHUNK = 3
+FIGURE_SPACE_AFTER = 12.0
+FIGURE_CAPTION_GAP = 6.0
+CHAPTER_MIN_SPACE = 58 * mm
+HEADING_TABLE_MIN_SPACE = 45 * mm
+MAX_LAYOUT_ATTEMPTS = 5
 MAX_PIXELS = 40_000_000
 CONTINUATION_INDENT = "  "
 KEEP_WITH_NEXT_MAX = 240
@@ -93,6 +111,7 @@ class RenderResult:
     pdf: bytes
     pages: int
     images: Tuple[str, ...]
+    exempt_pages: Tuple[int, ...]
 
 
 class HeadingParagraph(Paragraph):
@@ -104,8 +123,20 @@ class HeadingParagraph(Paragraph):
         self.plain = plain
 
 
+class ForcedBreak(PageBreak):
+    """A page break that is intentional; the audit does not count its page as underfilled."""
+
+
 class _Document(BaseDocTemplate):
-    def __init__(self, target, meta: Meta, brand: Brand, styles: Styles) -> None:
+    def __init__(
+        self,
+        target,
+        meta: Meta,
+        brand: Brand,
+        styles: Styles,
+        total_pages: Optional[int],
+        header_map: Dict[int, str],
+    ) -> None:
         super().__init__(
             target,
             pagesize=(PAGE_WIDTH, PAGE_HEIGHT),
@@ -123,7 +154,15 @@ class _Document(BaseDocTemplate):
         self.meta = meta
         self.brand = brand
         self.styles = styles
+        self.total_pages = total_pages
+        self.header_map = header_map
+        self.forced_pages: set = set()
+        self.body_start_page: Optional[int] = None
         self._heading_count = 0
+        self._chapter = ""
+        self._start_chapter: Dict[int, str] = {}
+        self._header_override: Dict[int, str] = {}
+        self._count_on_page: Dict[int, int] = {}
 
         cover_frame = Frame(
             MARGIN_LEFT, MARGIN_BOTTOM, CONTENT_WIDTH, PAGE_HEIGHT - 40 * mm - MARGIN_BOTTOM,
@@ -136,22 +175,67 @@ class _Document(BaseDocTemplate):
         self.addPageTemplates(
             [
                 PageTemplate(id="Cover", frames=[cover_frame], onPage=self._draw_cover),
+                PageTemplate(id="Front", frames=[body_frame], onPage=self._draw_front),
                 PageTemplate(id="Body", frames=[body_frame], onPage=self._draw_page),
             ]
         )
 
+    def beforeDocument(self):
+        self.canv.setViewerPreference("DisplayDocTitle", "true")
+
     def handle_documentBegin(self):
         self._heading_count = 0
+        self._chapter = ""
+        self._start_chapter = {}
+        self._header_override = {}
+        self._count_on_page = {}
+        self.forced_pages = set()
+        self.body_start_page = None
         super().handle_documentBegin()
 
     def afterFlowable(self, flowable):
+        page = self.page
+        if isinstance(flowable, ForcedBreak):
+            self.forced_pages.add(page)
+            return
+        self._count_on_page[page] = self._count_on_page.get(page, 0) + 1
+        self._start_chapter.setdefault(page, self._chapter)
         if isinstance(flowable, HeadingParagraph):
+            if self.body_start_page is None:
+                self.body_start_page = page
             self._heading_count += 1
             key = f"heading-{self._heading_count}"
             self.canv.bookmarkPage(key)
             self.canv.addOutlineEntry(flowable.plain, key, level=flowable.level - 1, closed=False)
             if flowable.level <= 2:
                 self.notify("TOCEntry", (flowable.level - 1, flowable.plain, self.page, key))
+            if flowable.level == 1:
+                self._chapter = flowable.plain
+                if self._count_on_page[page] <= 3:
+                    self._header_override[page] = flowable.plain
+
+    @property
+    def header_map_next(self) -> Dict[int, str]:
+        """Running header title of every page, as measured during the latest pass."""
+        return {
+            page: self._header_override.get(page) or chapter
+            for page, chapter in self._start_chapter.items()
+        }
+
+    @property
+    def _year(self) -> str:
+        return self.meta.date.split()[-1]
+
+    def _footer(self, canvas, doc, with_page: bool = True) -> None:
+        canvas.setFont("Body", 8.5)
+        canvas.setFillColor(MUTED)
+        canvas.drawString(
+            MARGIN_LEFT, 12 * mm,
+            f"{self.brand.display_name}  |  Version {self.meta.version}  |  {self.meta.date}",
+        )
+        if with_page:
+            label = f"Page {doc.page}" if not self.total_pages else f"Page {doc.page} of {self.total_pages}"
+            canvas.drawRightString(PAGE_WIDTH - MARGIN_RIGHT, 12 * mm, label)
 
     def _draw_cover(self, canvas, doc):
         canvas.saveState()
@@ -161,8 +245,17 @@ class _Document(BaseDocTemplate):
         canvas.rect(0, PAGE_HEIGHT - 17 * mm, PAGE_WIDTH, 3 * mm, stroke=0, fill=1)
         canvas.setFillColor(MUTED)
         canvas.setFont("Body", 8.5)
-        canvas.drawString(MARGIN_LEFT, 12 * mm, self.brand.display_name)
-        canvas.drawRightString(PAGE_WIDTH - MARGIN_RIGHT, 12 * mm, f"Version {self.meta.version}")
+        canvas.drawString(
+            MARGIN_LEFT, 12 * mm, f"Copyright (c) {self._year} {self.meta.author}. All rights reserved."
+        )
+        canvas.drawRightString(PAGE_WIDTH - MARGIN_RIGHT, 12 * mm, f"Version {self.meta.version}  |  {self.meta.date}")
+        canvas.restoreState()
+
+    def _draw_front(self, canvas, doc):
+        canvas.saveState()
+        canvas.setFillColor(self.styles.accent)
+        canvas.rect(MARGIN_LEFT, PAGE_HEIGHT - 14 * mm, 18 * mm, 1.2 * mm, stroke=0, fill=1)
+        self._footer(canvas, doc)
         canvas.restoreState()
 
     def _draw_page(self, canvas, doc):
@@ -171,68 +264,107 @@ class _Document(BaseDocTemplate):
         canvas.setFont("Body", 8.5)
         canvas.setFillColor(MUTED)
         canvas.drawString(MARGIN_LEFT, top, self.meta.title)
-        canvas.drawRightString(PAGE_WIDTH - MARGIN_RIGHT, top, self.brand.display_name)
+        chapter = self.header_map.get(doc.page) or self.brand.display_name
+        canvas.drawRightString(PAGE_WIDTH - MARGIN_RIGHT, top, chapter)
         canvas.setStrokeColor(RULE)
         canvas.setLineWidth(0.5)
         canvas.line(MARGIN_LEFT, top - 2.6 * mm, PAGE_WIDTH - MARGIN_RIGHT, top - 2.6 * mm)
         canvas.setFillColor(self.styles.accent)
         canvas.rect(MARGIN_LEFT, top - 3.2 * mm, 18 * mm, 1.2 * mm, stroke=0, fill=1)
-        canvas.setFillColor(MUTED)
-        canvas.drawString(MARGIN_LEFT, 12 * mm, f"Version {self.meta.version}  |  {self.meta.date}")
-        canvas.drawRightString(PAGE_WIDTH - MARGIN_RIGHT, 12 * mm, f"Page {doc.page}")
+        self._footer(canvas, doc)
         canvas.restoreState()
 
 
-def _split_at_word(text: str, limit: int) -> Tuple[str, str]:
-    """Split text into a head of at most limit characters and the rest, preferring a space."""
+def _wrap_with_classes(text: str, classes: Sequence[str], limit: int) -> List[Tuple[str, List[str]]]:
+    """Wrap one code line at limit characters, keeping the class letter of every character."""
     if len(text) <= limit:
-        return text, ""
-    cut = text.rfind(" ", 0, limit + 1)
-    if cut > limit // 2 and text[:cut].strip():
-        return text[:cut].rstrip(), text[cut + 1:]
-    return text[:limit], text[limit:]
-
-
-def _wrap_code_line(line: str, limit: int) -> List[str]:
-    """Wrap one code line at limit characters; continuation lines are indented."""
-    line = line.expandtabs(4).rstrip()
-    if len(line) <= limit:
-        return [line]
-    head, rest = _split_at_word(line, limit)
-    parts = [head]
-    width = limit - len(CONTINUATION_INDENT)
-    while rest:
-        head, rest = _split_at_word(rest, width)
-        parts.append(CONTINUATION_INDENT + head)
-    return parts
+        return [(text, list(classes))]
+    pieces: List[Tuple[str, List[str]]] = []
+    position = 0
+    first = True
+    while position < len(text):
+        remaining = text[position:]
+        width = limit if first else limit - len(CONTINUATION_INDENT)
+        if len(remaining) <= width:
+            head_length, advance = len(remaining), len(remaining)
+        else:
+            cut = remaining.rfind(" ", 0, width + 1)
+            if cut > width // 3 and remaining[:cut].strip():
+                head_length, advance = cut, cut + 1
+            else:
+                head_length, advance = width, width
+        piece = remaining[:head_length].rstrip()
+        piece_classes = list(classes[position:position + len(piece)])
+        if not first:
+            piece = CONTINUATION_INDENT + piece
+            piece_classes = [PLAIN] * len(CONTINUATION_INDENT) + piece_classes
+        pieces.append((piece, piece_classes))
+        position += advance
+        first = False
+    return pieces
 
 
 def _code_flowables(block: Code, styles: Styles) -> List:
-    available = CONTENT_WIDTH - CODE_PADDING_LEFT - CODE_PADDING_RIGHT
+    language = normalize_language(block.language)
+    lines = [line.expandtabs(4).rstrip() for line in block.lines] or [""]
+    for text in lines:
+        check_glyphs(text, "Mono", block.line)
+
+    numbered = language in NUMBERED_LANGUAGES and len(lines) >= 4
     char_width = pdfmetrics.stringWidth("M", "Mono", CODE_SIZE)
+    digits = len(str(len(lines)))
+    gutter_width = (digits + 1) * char_width + 12 if numbered else 0.0
+    available = CONTENT_WIDTH - CODE_PADDING_LEFT - CODE_PADDING_RIGHT - gutter_width
     limit = max(20, int(available // char_width))
-    for text in block.lines:
-        check_glyphs(text.expandtabs(4), "Mono", block.line)
-    wrapped: List[str] = []
-    for text in block.lines:
-        wrapped.extend(_wrap_code_line(text, limit))
-    if not wrapped:
-        wrapped = [" "]
-    chunks = [wrapped[i:i + CODE_CHUNK_LINES] for i in range(0, len(wrapped), CODE_CHUNK_LINES)]
+
+    rows: List[Tuple[Optional[int], str, List[str]]] = []
+    for number, (text, line_classes) in enumerate(zip(lines, classify(lines, language)), start=1):
+        for index, (piece, piece_classes) in enumerate(_wrap_with_classes(text, line_classes, limit)):
+            rows.append((number if index == 0 else None, piece, piece_classes))
+
+    chunks = [rows[i:i + CODE_CHUNK_LINES] for i in range(0, len(rows), CODE_CHUNK_LINES)]
+    if len(chunks) > 1 and len(chunks[-1]) < MIN_LAST_CHUNK:
+        last_chunk = chunks.pop()
+        chunks[-1] = chunks[-1] + last_chunk
     tables: List[Table] = []
     for index, chunk in enumerate(chunks):
-        table = Table([[Preformatted("\n".join(chunk), styles.code)]], colWidths=[CONTENT_WIDTH], hAlign="LEFT")
+        markup = "\n".join(highlight_markup(piece, piece_classes, CODE_COLORS) for _, piece, piece_classes in chunk)
+        code_cell = XPreformatted(markup, styles.code)
+        top = CODE_PADDING_VERTICAL if index == 0 else 0
+        bottom = CODE_PADDING_VERTICAL if index == len(chunks) - 1 else 0
+        if numbered:
+            numbers = "\n".join(f"{number:>{digits}}" if number else "" for number, _, _ in chunk)
+            table = Table(
+                [[XPreformatted(numbers, styles.code_number), code_cell]],
+                colWidths=[gutter_width, CONTENT_WIDTH - gutter_width],
+                hAlign="LEFT",
+            )
+            commands = [
+                ("BACKGROUND", (0, 0), (0, -1), GUTTER_BACKGROUND),
+                ("BACKGROUND", (1, 0), (1, -1), CODE_BACKGROUND),
+                ("LEFTPADDING", (0, 0), (0, -1), 8),
+                ("RIGHTPADDING", (0, 0), (0, -1), 6),
+                ("LEFTPADDING", (1, 0), (1, -1), 10),
+                ("RIGHTPADDING", (1, 0), (1, -1), CODE_PADDING_RIGHT),
+                ("LINEAFTER", (0, 0), (0, -1), 0.5, RULE),
+            ]
+        else:
+            table = Table([[code_cell]], colWidths=[CONTENT_WIDTH], hAlign="LEFT")
+            commands = [
+                ("BACKGROUND", (0, 0), (-1, -1), CODE_BACKGROUND),
+                ("LEFTPADDING", (0, 0), (-1, -1), CODE_PADDING_LEFT),
+                ("RIGHTPADDING", (0, 0), (-1, -1), CODE_PADDING_RIGHT),
+            ]
         table.setStyle(
             TableStyle(
                 [
                     ("FONTNAME", (0, 0), (-1, -1), "Mono"),
-                    ("BACKGROUND", (0, 0), (-1, -1), CODE_BACKGROUND),
                     ("LINEBEFORE", (0, 0), (0, -1), 2.5, styles.accent),
-                    ("LEFTPADDING", (0, 0), (-1, -1), CODE_PADDING_LEFT),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), CODE_PADDING_RIGHT),
-                    ("TOPPADDING", (0, 0), (-1, -1), CODE_PADDING_VERTICAL if index == 0 else 0),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), CODE_PADDING_VERTICAL if index == len(chunks) - 1 else 0),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), top),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), bottom),
                 ]
+                + commands
             )
         )
         tables.append(table)
@@ -309,11 +441,17 @@ def _table_flowable(block: TableBlock, styles: Styles) -> Table:
 
 def _callout_flowable(block: Callout, styles: Styles) -> Table:
     check_glyphs(block.text, "Body", block.line)
-    warning = block.kind == "WARNING"
-    color = WARNING if warning else styles.accent
-    label_style = styles.warning_label if warning else styles.callout_label
+    colors_by_kind = {
+        "NOTE": (styles.accent, "NOTE"),
+        "WARNING": (WARNING, "WARNING"),
+        "TIP": (TIP, "TIP"),
+        "KEY": (styles.primary, "KEY POINT"),
+        "CHECKPOINT": (CHECKPOINT, "CHECKPOINT"),
+    }
+    color, label = colors_by_kind[block.kind]
+    label_style = ParagraphStyle(f"{block.kind}Label", parent=styles.callout_label, textColor=color)
     content = [
-        Paragraph("WARNING" if warning else "NOTE", label_style),
+        Paragraph(label, label_style),
         Paragraph(to_markup(block.text, block.line), styles.callout_text),
     ]
     table = Table([[content]], colWidths=[CONTENT_WIDTH], hAlign="LEFT")
@@ -340,7 +478,50 @@ def _scaled_size(pixel_width: int, pixel_height: int, dpi: float, max_width: flo
     return width * scale, height * scale
 
 
-def _image_flowable(block: ImageBlock, doc_dir: Path, styles: Styles, figure: int, used: List[str]) -> List:
+class Figure(Flowable):
+    """An image with an optional caption that shrinks a little to fit the space that is left.
+
+    The image is never reduced below MIN_FIGURE_SCALE of its normal size; if it would not fit even
+    then, the whole figure moves to the next page.
+    """
+
+    def __init__(self, path: str, width: float, height: float, caption: Optional[Paragraph]) -> None:
+        super().__init__()
+        self._path = path
+        self._width = width
+        self._height = height
+        self._caption = caption
+        self._draw_width = width
+        self._draw_height = height
+        self._caption_height = 0.0
+        self.hAlign = "CENTER"
+
+    def wrap(self, available_width, available_height):
+        self._caption_height = 0.0
+        gap = 0.0
+        if self._caption is not None:
+            _, self._caption_height = self._caption.wrap(available_width, available_height)
+            gap = FIGURE_CAPTION_GAP
+        self._reserved = FIGURE_SPACE_AFTER + self._caption_height + gap
+        room = available_height - self._reserved
+        scale = 1.0
+        if room < self._height:
+            scale = max(MIN_FIGURE_SCALE, room / self._height) if room > 0 else MIN_FIGURE_SCALE
+        self._draw_width = self._width * scale
+        self._draw_height = self._height * scale
+        self._box_width = available_width
+        return available_width, self._draw_height + self._reserved
+
+    def draw(self):
+        canvas = self.canv
+        left = (self._box_width - self._draw_width) / 2
+        image_bottom = FIGURE_SPACE_AFTER + self._caption_height + (FIGURE_CAPTION_GAP if self._caption is not None else 0.0)
+        canvas.drawImage(ImageReader(self._path), left, image_bottom, self._draw_width, self._draw_height, mask="auto")
+        if self._caption is not None:
+            self._caption.drawOn(canvas, 0, FIGURE_SPACE_AFTER)
+
+
+def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[Path, float, float]:
     try:
         path = resolve_inside(doc_dir, block.path)
     except Exception as exc:
@@ -358,16 +539,17 @@ def _image_flowable(block: ImageBlock, doc_dir: Path, styles: Styles, figure: in
         raise ContentError(f"image is too large: {block.path}", block.line)
     dpi = float(raw_dpi) if raw_dpi and float(raw_dpi) >= 36 else DEFAULT_IMAGE_DPI
     width, height = _scaled_size(width_px, height_px, dpi, CONTENT_WIDTH, MAX_IMAGE_HEIGHT)
+    return path, width, height
+
+
+def _image_flowable(block: ImageBlock, doc_dir: Path, styles: Styles, figure: int, used: List[str]) -> List:
+    path, width, height = _figure_size(block, doc_dir)
     used.append(block.path)
-    picture = Image(str(path), width=width, height=height, mask="auto")
-    picture.hAlign = "CENTER"
-    parts: List = [picture]
+    caption = None
     if block.caption:
         check_glyphs(block.caption, "Body", block.line)
-        parts.append(Paragraph(f"Figure {figure}. {to_markup(block.caption, block.line)}", styles.caption))
-    else:
-        parts.append(Spacer(1, 10))
-    return [KeepTogether(parts)]
+        caption = Paragraph(f"Figure {figure}. {to_markup(block.caption, block.line)}", styles.caption)
+    return [Figure(str(path), width, height, caption)]
 
 
 def _list_flowable(block, styles: Styles, numbered: bool) -> List:
@@ -393,22 +575,97 @@ def _cover(meta: Meta, brand: Brand, styles: Styles) -> List:
     logo_height = logo_width / aspect
     logo = Image(str(brand.logo_path), width=logo_width, height=logo_height, mask="auto")
     logo.hAlign = "LEFT"
-    story: List = [Spacer(1, 12 * mm), logo]
+    story: List = [Spacer(1, 10 * mm), logo]
     if brand.tagline:
         story.append(Paragraph(to_markup(brand.tagline), styles.cover_tagline))
-    story.append(Spacer(1, 34 * mm))
-    story.append(Paragraph(to_markup(meta.title), styles.cover_title))
+    story.append(Spacer(1, 26 * mm))
+
+    title_style = ParagraphStyle("CoverTitleOnPanel", parent=styles.cover_title, textColor=styles.on_primary)
+    subtitle_color = mix_with_white(styles.primary, 0.72) if styles.on_primary == colors.white else MUTED
+    subtitle_style = ParagraphStyle(
+        "CoverSubtitleOnPanel", parent=styles.cover_subtitle, textColor=subtitle_color, spaceAfter=0,
+    )
+    panel = [Paragraph(to_markup(meta.title), title_style)]
     if meta.subtitle:
-        story.append(Paragraph(to_markup(meta.subtitle), styles.cover_subtitle))
-    story.append(HRFlowable(width="22%", thickness=3, color=styles.accent, hAlign="LEFT", spaceBefore=8, spaceAfter=18))
-    for label, value in (
+        panel.append(Paragraph(to_markup(meta.subtitle), subtitle_style))
+    panel_table = Table([[panel]], colWidths=[CONTENT_WIDTH], hAlign="LEFT")
+    panel_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Body"),
+                ("BACKGROUND", (0, 0), (-1, -1), styles.primary),
+                ("LINEBELOW", (0, 0), (-1, -1), 4, styles.accent),
+                ("LEFTPADDING", (0, 0), (-1, -1), 20),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 20),
+                ("TOPPADDING", (0, 0), (-1, -1), 22),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 22),
+            ]
+        )
+    )
+    story.append(panel_table)
+    story.append(Spacer(1, 12 * mm))
+
+    def cell(label: str, value: str) -> List:
+        return [Paragraph(label, styles.cover_meta_label), Paragraph(to_markup(value), styles.cover_meta)]
+
+    grid = Table(
+        [
+            [cell("AUTHOR", meta.author), cell("VERSION", meta.version)],
+            [cell("AUDIENCE", meta.audience), cell("DATE", meta.date)],
+        ],
+        colWidths=[CONTENT_WIDTH * 0.64, CONTENT_WIDTH * 0.36],
+        hAlign="LEFT",
+    )
+    grid.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Body"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    story.append(grid)
+    return story
+
+
+def _imprint(meta: Meta, brand: Brand, styles: Styles) -> List:
+    year = meta.date.split()[-1]
+    story: List = [Paragraph(to_markup(meta.title), styles.imprint_title)]
+    if meta.subtitle:
+        story.append(Paragraph(to_markup(meta.subtitle), styles.imprint_subtitle))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=RULE, spaceBefore=2, spaceAfter=4))
+    entries = [
+        ("EDITION", f"Version {meta.version}, {meta.date}"),
         ("AUTHOR", meta.author),
-        ("AUDIENCE", meta.audience),
-        ("VERSION", meta.version),
-        ("DATE", meta.date),
-    ):
-        story.append(Paragraph(label, styles.cover_meta_label))
-        story.append(Paragraph(to_markup(value), styles.cover_meta))
+        ("PUBLISHER", brand.display_name),
+        ("INTENDED READERS", meta.audience),
+    ]
+    for label, value in entries:
+        story.append(Paragraph(label, styles.imprint_label))
+        story.append(Paragraph(to_markup(value), styles.imprint_text))
+    story.append(Spacer(1, 70 * mm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=RULE, spaceBefore=0, spaceAfter=4))
+    closing = [
+        ("COPYRIGHT", f"Copyright (c) {year} {meta.author}. All rights reserved."),
+        (
+            "RIGHTS",
+            "No part of this document may be reproduced, stored or transmitted in any form without the prior "
+            "written permission of the publisher, except as stated in the Rights and License section at the "
+            "end of this document.",
+        ),
+        (
+            "PRODUCTION",
+            f"Typeset with Azimi Publishing Engine {__version__}. Fonts: Carlito and Liberation Mono, "
+            "licensed under the SIL Open Font License 1.1.",
+        ),
+    ]
+    for label, value in closing:
+        story.append(Paragraph(label, styles.imprint_label))
+        story.append(Paragraph(to_markup(value), styles.imprint_text))
     return story
 
 
@@ -429,14 +686,33 @@ def _toc(styles: Styles) -> TableOfContents:
     return toc
 
 
+def validate_inline(blocks: Sequence[Block]) -> None:
+    """Raise ContentError for the first block whose inline markers are not valid."""
+    for block in blocks:
+        texts: List[str] = []
+        if isinstance(block, (Heading, ParagraphBlock, Callout)):
+            texts.append(block.text)
+        elif isinstance(block, (BulletList, NumberedList)):
+            texts.extend(block.items)
+        elif isinstance(block, TableBlock):
+            texts.extend(block.header)
+            texts.extend(cell for row in block.rows for cell in row)
+        elif isinstance(block, ImageBlock) and block.caption:
+            texts.append(block.caption)
+        for text in texts:
+            to_markup(text, block.line)
+
+
 def _break_page(story: List) -> None:
-    """Append a page break unless the story already ends with one."""
+    """Append an intentional page break unless the story already ends with one."""
     if story and isinstance(story[-1], PageBreak):
         return
-    story.append(PageBreak())
+    story.append(ForcedBreak())
 
 
-def _story(blocks: Sequence[Block], doc_dir: Path, styles: Styles) -> Tuple[List, List[str]]:
+def _story(
+    blocks: Sequence[Block], doc_dir: Path, styles: Styles, chapter_pages: bool
+) -> Tuple[List, List[str]]:
     story: List = []
     images: List[str] = []
     figure = 0
@@ -449,14 +725,31 @@ def _story(blocks: Sequence[Block], doc_dir: Path, styles: Styles) -> Tuple[List
             style = {1: styles.h1, 2: styles.h2, 3: styles.h3}[block.level]
             if block.level == 1:
                 if seen_h1:
-                    _break_page(story)
+                    if chapter_pages:
+                        _break_page(story)
+                    elif not isinstance(story[-1], PageBreak):
+                        story.append(CondPageBreak(CHAPTER_MIN_SPACE))
                 seen_h1 = True
+            second = blocks[position + 2] if position + 2 < len(blocks) else None
+            if isinstance(following, (TableBlock, ImageBlock)):
+                # A table or a figure may split or shrink, so the heading is not chained to it as one
+                # unbreakable group; instead there must be room for the heading and the first rows.
+                style = ParagraphStyle(f"{style.name}Free", parent=style, keepWithNext=0)
+                if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
+                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE))
+            elif isinstance(following, ParagraphBlock) and isinstance(second, (TableBlock, ImageBlock)):
+                if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
+                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE + 12 * mm))
             story.append(
                 HeadingParagraph(to_markup(block.text, block.line), style, block.level, to_plain(block.text, block.line))
             )
         elif isinstance(block, ParagraphBlock):
             check_glyphs(block.text, "Body", block.line)
-            introduces = isinstance(following, (Code, TableBlock, ImageBlock)) and len(block.text) <= KEEP_WITH_NEXT_MAX
+            previous = blocks[position - 1] if position > 0 else None
+            if isinstance(following, (TableBlock, ImageBlock)) and not isinstance(previous, Heading):
+                if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
+                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE))
+            introduces = isinstance(following, Code) and len(block.text) <= KEEP_WITH_NEXT_MAX
             style = styles.body_keep if introduces else styles.body
             story.append(Paragraph(to_markup(block.text, block.line), style))
         elif isinstance(block, BulletList):
@@ -481,7 +774,42 @@ def _story(blocks: Sequence[Block], doc_dir: Path, styles: Styles) -> Tuple[List
     return story, images
 
 
-def render_document(blocks: Sequence[Block], meta: Meta, brand: Brand, doc_dir: Path) -> RenderResult:
+def _assemble(
+    blocks: Sequence[Block],
+    rights_blocks: Sequence[Block],
+    meta: Meta,
+    brand: Brand,
+    doc_dir: Path,
+    styles: Styles,
+) -> Tuple[List, List[str]]:
+    body_story, images = _story(blocks, doc_dir, styles, meta.chapter_pages)
+    rights_story, _ = _story(rights_blocks, brand.rights_path.parent, styles, True)
+    has_contents = any(isinstance(b, Heading) for b in list(blocks) + list(rights_blocks))
+
+    story: List = _cover(meta, brand, styles)
+    story.append(NextPageTemplate("Front"))
+    story.append(ForcedBreak())
+    story.extend(_imprint(meta, brand, styles))
+    story.append(NextPageTemplate("Body"))
+    story.append(ForcedBreak())
+    if has_contents:
+        story.append(Paragraph("Contents", styles.toc_title))
+        story.append(_toc(styles))
+        story.append(ForcedBreak())
+    story.extend(body_story)
+    if rights_story:
+        story.append(ForcedBreak())
+        story.extend(rights_story)
+    return story, images
+
+
+def render_document(
+    blocks: Sequence[Block],
+    meta: Meta,
+    brand: Brand,
+    doc_dir: Path,
+    rights_blocks: Sequence[Block],
+) -> RenderResult:
     """Render blocks to PDF bytes. Fonts must already be registered."""
     for text in (
         meta.title, meta.subtitle or "", meta.author, meta.audience, meta.date, brand.display_name, brand.tagline or "",
@@ -489,20 +817,6 @@ def render_document(blocks: Sequence[Block], meta: Meta, brand: Brand, doc_dir: 
         check_glyphs(text, "Body")
 
     styles = build_styles(brand)
-    body_story, images = _story(blocks, doc_dir, styles)
-    has_contents = any(isinstance(b, Heading) for b in blocks)
-
-    story: List = _cover(meta, brand, styles)
-    story.append(NextPageTemplate("Body"))
-    story.append(PageBreak())
-    if has_contents:
-        story.append(Paragraph("Contents", styles.toc_title))
-        story.append(_toc(styles))
-        story.append(PageBreak())
-    story.extend(body_story)
-
-    buffer = io.BytesIO()
-    document = _Document(buffer, meta, brand, styles)
 
     previous_epoch = os.environ.get("SOURCE_DATE_EPOCH")
     previous_lang = rl_config.documentLang
@@ -511,7 +825,19 @@ def render_document(blocks: Sequence[Block], meta: Meta, brand: Brand, doc_dir: 
     rl_config.documentLang = meta.language
     rl_config.canvas_basefontname = "Body"
     try:
-        document.multiBuild(story, maxPasses=6)
+        total: Optional[int] = None
+        header_map: Dict[int, str] = {}
+        for _attempt in range(MAX_LAYOUT_ATTEMPTS):
+            story, images = _assemble(blocks, rights_blocks, meta, brand, doc_dir, styles)
+            buffer = io.BytesIO()
+            document = _Document(buffer, meta, brand, styles, total, header_map)
+            document.multiBuild(story, maxPasses=6)
+            settled = document.page == total and document.header_map_next == header_map
+            total, header_map = document.page, document.header_map_next
+            if settled:
+                break
+        else:
+            raise EngineError("page layout did not settle; the document is too unstable to typeset")
     finally:
         rl_config.documentLang = previous_lang
         rl_config.canvas_basefontname = previous_font
@@ -520,4 +846,8 @@ def render_document(blocks: Sequence[Block], meta: Meta, brand: Brand, doc_dir: 
         else:
             os.environ["SOURCE_DATE_EPOCH"] = previous_epoch
 
-    return RenderResult(pdf=buffer.getvalue(), pages=document.page, images=tuple(images))
+    body_start = document.body_start_page or (document.page + 1)
+    exempt = {page for page in range(1, body_start)} | set(document.forced_pages) | {document.page}
+    return RenderResult(
+        pdf=buffer.getvalue(), pages=document.page, images=tuple(images), exempt_pages=tuple(sorted(exempt))
+    )

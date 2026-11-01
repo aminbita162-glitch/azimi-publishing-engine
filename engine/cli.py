@@ -49,4 +49,11 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
     print(f"Manifest  : {result.manifest_path}")
     print(f"Pages     : {result.pages}")
     print(f"SHA-256   : {result.sha256}")
+    report = result.audit
+    print(f"Audit     : {'PASS' if report.passed else 'FAIL'} ({sum(c.passed for c in report.checks)}/{len(report.checks)} checks)")
+    for check in report.checks:
+        print(f"  {check.id} {check.status}  {check.name}: {check.detail}")
+    if not report.passed:
+        print("error: the audit failed; the document must not be released", file=sys.stderr)
+        return 3
     return 0
