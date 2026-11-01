@@ -1,0 +1,5 @@
+brew "qpdf"
+brew "poppler"
+brew "mupdf"
+brew "ghostscript"
+brew "exiftool"

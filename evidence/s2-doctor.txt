@@ -1,0 +1,19 @@
+=== S2 DOCTOR ===
+Date: Sun Nov  1 23:41:07 UTC 2026
+qpdf          qpdf version 12.4.2
+pdfinfo       I/O Error: Couldn't open file '--version': No such file or directory.
+present
+pdffonts      I/O Error: Couldn't open file '--version': No such file or directory.
+present
+pdfimages     pdfimages version 26.10.0
+present
+pdftoppm      I/O Error: Couldn't open file '--version': No such file or directory.
+present
+pdftotext     I/O Error: Couldn't open file '--version': No such file or directory.
+present
+mutool        mutool version 1.28.6
+present
+gs            10.08.0
+exiftool      NAME
+present
+Python: Python 3.12.13
