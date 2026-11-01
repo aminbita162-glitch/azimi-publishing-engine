@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import yaml
 from PIL import Image as PILImage
@@ -19,7 +19,8 @@ MAX_LOGO_BYTES = 8 * 1024 * 1024
 
 _NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
-_KEYS = ("display_name", "primary_color", "accent_color")
+_REQUIRED_KEYS = ("display_name", "primary_color", "accent_color")
+_OPTIONAL_KEYS = ("tagline",)
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ class Brand:
     accent_color: str
     logo_path: Path
     logo_size: Tuple[int, int]
+    tagline: Optional[str] = None
 
 
 def _validate_logo(path: Path) -> Tuple[int, int]:
@@ -77,10 +79,10 @@ def load_brand(brand_root: Union[str, Path], name: str) -> Brand:
 
     if not isinstance(data, dict):
         raise ConfigError("brand: brand.yaml must be a mapping of keys to values")
-    unknown = sorted(set(data) - set(_KEYS))
+    unknown = sorted(set(data) - set(_REQUIRED_KEYS) - set(_OPTIONAL_KEYS))
     if unknown:
         raise ConfigError("brand: unknown keys: " + ", ".join(str(k) for k in unknown))
-    missing = [key for key in _KEYS if key not in data]
+    missing = [key for key in _REQUIRED_KEYS if key not in data]
     if missing:
         raise ConfigError("brand: missing keys: " + ", ".join(missing))
 
@@ -92,6 +94,13 @@ def load_brand(brand_root: Union[str, Path], name: str) -> Brand:
         if not isinstance(value, str) or not _COLOR.match(value):
             raise ConfigError(f"brand: {key} must look like #1A2B3C")
 
+    tagline = None
+    if "tagline" in data:
+        tagline = data["tagline"]
+        if not isinstance(tagline, str) or not tagline.strip() or len(tagline) > 200:
+            raise ConfigError("brand: tagline must be non-empty text of at most 200 characters")
+        tagline = tagline.strip()
+
     logo_path = resolve_inside(folder, "logo.png")
     size = _validate_logo(logo_path)
     return Brand(
@@ -101,4 +110,5 @@ def load_brand(brand_root: Union[str, Path], name: str) -> Brand:
         accent_color=data["accent_color"].upper(),
         logo_path=logo_path,
         logo_size=size,
+        tagline=tagline,
     )

@@ -34,6 +34,18 @@ class BrandTests(unittest.TestCase):
         self.assertEqual(brand.accent_color, "#E07A1F")
         self.assertEqual(brand.logo_size, (1200, 400))
 
+    def test_tagline_is_optional(self):
+        self.assertIsNone(load_brand(self.root, "azimi").tagline)
+        (self.folder / "brand.yaml").write_text(YAML + "tagline: AI Architect | Systems\n", encoding="utf-8")
+        self.assertEqual(load_brand(self.root, "azimi").tagline, "AI Architect | Systems")
+
+    def test_invalid_tagline(self):
+        for bad in ("''", "x" * 201, "5"):
+            with self.subTest(bad=bad):
+                (self.folder / "brand.yaml").write_text(YAML + f"tagline: {bad}\n", encoding="utf-8")
+                with self.assertRaisesRegex(ConfigError, "tagline"):
+                    load_brand(self.root, "azimi")
+
     def test_logo_too_narrow(self):
         make_logo(self.folder / "logo.png", width=999)
         with self.assertRaisesRegex(ConfigError, "at least 1000"):

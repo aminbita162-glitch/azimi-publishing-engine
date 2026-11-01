@@ -335,11 +335,14 @@ def _list_flowable(block, styles: Styles, numbered: bool) -> List:
 
 def _cover(meta: Meta, brand: Brand, styles: Styles) -> List:
     aspect = brand.logo_size[0] / float(brand.logo_size[1])
-    logo_width = min(70 * mm, 28 * mm * aspect)
+    logo_width = min(CONTENT_WIDTH, 40 * mm * aspect)
     logo_height = logo_width / aspect
     logo = Image(str(brand.logo_path), width=logo_width, height=logo_height, mask="auto")
     logo.hAlign = "LEFT"
-    story: List = [Spacer(1, 12 * mm), logo, Spacer(1, 38 * mm)]
+    story: List = [Spacer(1, 12 * mm), logo]
+    if brand.tagline:
+        story.append(Paragraph(to_markup(brand.tagline), styles.cover_tagline))
+    story.append(Spacer(1, 34 * mm))
     story.append(Paragraph(to_markup(meta.title), styles.cover_title))
     if meta.subtitle:
         story.append(Paragraph(to_markup(meta.subtitle), styles.cover_subtitle))
@@ -423,7 +426,9 @@ def _story(blocks: Sequence[Block], doc_dir: Path, styles: Styles) -> Tuple[List
 
 def render_document(blocks: Sequence[Block], meta: Meta, brand: Brand, doc_dir: Path) -> RenderResult:
     """Render blocks to PDF bytes. Fonts must already be registered."""
-    for text in (meta.title, meta.subtitle or "", meta.author, meta.audience, meta.date, brand.display_name):
+    for text in (
+        meta.title, meta.subtitle or "", meta.author, meta.audience, meta.date, brand.display_name, brand.tagline or "",
+    ):
         check_glyphs(text, "Body")
 
     styles = build_styles(brand)

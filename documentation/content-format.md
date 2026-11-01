@@ -54,8 +54,8 @@ Characters that the bundled fonts cannot draw are rejected, so no placeholder bo
 
 Each brand is a folder brand/NAME containing:
 
-- logo.png : transparent PNG between 1000 and 8000 px wide, at most 8 MB
-- brand.yaml : display_name, primary_color and accent_color (colors as #RRGGBB)
+- logo.png : transparent PNG between 1000 and 8000 px wide, at most 8 MB; shown on the cover up to the full text width, so a wide header lockup with a tagline line is supported
+- brand.yaml : display_name, primary_color and accent_color (colors as #RRGGBB); optional tagline of at most 200 characters, shown on the cover below the logo
 
 Replacing the logo and brand.yaml re-brands every PDF built with that brand.
 

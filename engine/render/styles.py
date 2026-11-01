@@ -76,6 +76,7 @@ class Styles:
     cover_subtitle: ParagraphStyle
     cover_meta: ParagraphStyle
     cover_meta_label: ParagraphStyle
+    cover_tagline: ParagraphStyle
     toc_title: ParagraphStyle
     toc1: ParagraphStyle
     toc2: ParagraphStyle
@@ -143,6 +144,9 @@ def build_styles(brand: Brand) -> Styles:
         "CoverMetaLabel", parent=cover_meta, fontName="Body-Bold", fontSize=8.5, leading=11,
         textColor=accent, spaceBefore=10, spaceAfter=1,
     )
+    cover_tagline = ParagraphStyle(
+        "CoverTagline", parent=body, fontSize=9.5, leading=13, textColor=MUTED, spaceBefore=10, spaceAfter=0,
+    )
     toc_title = ParagraphStyle("TocTitle", parent=h1, spaceAfter=18)
     toc1 = ParagraphStyle(
         "Toc1", parent=body, fontName="Body-Bold", fontSize=11.5, leading=16, spaceBefore=7, spaceAfter=0,
@@ -157,6 +161,7 @@ def build_styles(brand: Brand) -> Styles:
         code=code, code_label=code_label, caption=caption, table_cell=table_cell,
         table_header=table_header, callout_text=callout_text, callout_label=callout_label,
         warning_label=warning_label, cover_title=cover_title, cover_subtitle=cover_subtitle,
-        cover_meta=cover_meta, cover_meta_label=cover_meta_label, toc_title=toc_title,
+        cover_meta=cover_meta, cover_meta_label=cover_meta_label, cover_tagline=cover_tagline,
+        toc_title=toc_title,
         toc1=toc1, toc2=toc2,
     )

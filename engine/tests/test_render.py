@@ -68,6 +68,14 @@ class RenderTests(unittest.TestCase):
             ["Foundations", "Core ideas", "Second chapter", "Details"],
         )
 
+    def test_cover_shows_brand_tagline(self):
+        with TempProject() as other:
+            brand_file = other / "brand" / "default" / "brand.yaml"
+            brand_file.write_text(brand_file.read_text() + "tagline: AI Architect Amin Azimi\n", encoding="utf-8")
+            result = build_document(other, "courses/doc")
+            first_page = read(result.pdf_path).pages[0].extract_text()
+        self.assertIn("AI Architect Amin Azimi", first_page)
+
     def test_text_content_is_extractable(self):
         text = " ".join(page.extract_text() for page in self.reader.pages)
         for expected in ("Agentic Systems Foundations", "Contents", "Closing text.", "Figure 1. The pipeline", "Page 3"):
