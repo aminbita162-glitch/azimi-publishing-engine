@@ -1,0 +1,119 @@
+#!/bin/zsh
+# AZIMI PUBLISHING ENGINE — SAFE STRUCTURE CREATION V1.3
+# Organization: Azimi Innovation Lab
+# Owner: Amin Azimi
+# PURPOSE: Prepare reusable publishing infrastructure and the Session 01 workspace.
+# This is a DIRECTORY-ONLY setup script. It does NOT author lesson content,
+# convert text into PDF, build PDFs, publish anything, or alter source repositories.
+# The existing Session 01 English PDF is a CONTENT REFERENCE ONLY; its full
+# extraction, accuracy review, new lesson brief and editorial approval are
+# separate mandatory steps before any Session 01 PDF build.
+#
+# SAFETY CONTRACT
+# - Never delete, rename, replace, truncate, or edit an existing file.
+# - Never remove or recreate existing directories.
+# - Never run downloaded code, fetch from the network, or modify Git repos.
+# - Never touch the existing output folder or PDF files.
+# - Abort on unexpected paths, symlinks, or missing root directive.
+# - Directory creation uses mkdir -p only after explicit validation.
+# - Idempotent: rerunning should not change any existing file.
+# - Create ONLY Session 01 now; Sessions 02–16 remain future owner-gated work.
+# - This script is permanent infrastructure, not a disposable test file.
+#
+# EXECUTION (AFTER OWNER APPROVAL AND REVIEW):
+#   zsh ./azimi_create_structure_v1_3.txt
+# The script may be stored under a .txt extension intentionally for easy transfer.
+
+emulate -L zsh
+setopt ERR_EXIT NO_UNSET PIPE_FAIL
+umask 077
+
+ROOT="$HOME/azimi-publishing-engine"
+COURSE="$ROOT/courses/agentic-ai-masterclass"
+SESSION="$COURSE/session-01"
+
+fail() { print -u2 -- "STOP: $1"; exit 1; }
+info() { print -r -- "INFO: $1"; }
+
+# 01 — Verify execution environment and approved project identity.
+[[ -n "${HOME:-}" && -d "$HOME/Desktop" ]] || fail 'Home or Desktop directory unavailable.'
+[[ -d "$ROOT" && ! -L "$ROOT" ]] || fail 'Expected project root missing or is a symlink.'
+[[ -f "$ROOT/directive.txt" && ! -L "$ROOT/directive.txt" ]] || fail 'Root directive.txt missing or is a symlink.'
+[[ -s "$ROOT/directive.txt" ]] || fail 'Root directive.txt is empty.'
+[[ -r "$ROOT/directive.txt" ]] || fail 'Root directive.txt is not readable.'
+[[ -w "$ROOT" ]] || fail 'Project root is not writable.'
+
+# 02 — Enumerate the exact authorized directories; no other paths are created.
+# Shared engine folders are reusable for future sessions.
+typeset -a DIRECTORIES
+DIRECTORIES=(
+  "$ROOT/engine"
+  "$ROOT/engine/build"
+  "$ROOT/engine/audit"
+  "$ROOT/engine/render"
+  "$ROOT/engine/accessibility"
+  "$ROOT/engine/schemas"
+  "$ROOT/engine/tests"
+  "$ROOT/standards"
+  "$ROOT/design-system"
+  "$ROOT/brand"
+  "$ROOT/references"
+  "$ROOT/documentation"
+  "$ROOT/courses"
+  "$COURSE"
+  "$COURSE/curriculum"
+  "$COURSE/shared-assets"
+  "$SESSION"
+  "$SESSION/content"
+  "$SESSION/sources"
+  "$SESSION/assets"
+  "$SESSION/design"
+  "$SESSION/build"
+  "$SESSION/out"
+  "$SESSION/evidence"
+)
+
+# 03 — Preflight EVERY path before creating ANY directory.
+# Existing symlinks, non-directory collisions and unsafe parent paths block.
+for dir in "${DIRECTORIES[@]}"; do
+  [[ "$dir" == "$ROOT/"* ]] || fail "Unauthorized directory outside project root: $dir"
+  [[ ! -L "$dir" ]] || fail "Symlink is not allowed: $dir"
+  [[ ! -e "$dir" || -d "$dir" ]] || fail "Existing non-directory blocks setup: $dir"
+done
+
+# 04 — Create missing directories only. Existing files remain untouched.
+integer created=0
+integer already_present=0
+for dir in "${DIRECTORIES[@]}"; do
+  if [[ -d "$dir" ]]; then
+    (( already_present += 1 ))
+  else
+    mkdir -p -- "$dir" || fail "Unable to create directory: $dir"
+    (( created += 1 ))
+  fi
+done
+
+# 05 — Postflight: independently check each expected directory.
+integer verified=0
+for dir in "${DIRECTORIES[@]}"; do
+  [[ -d "$dir" && ! -L "$dir" ]] || fail "Postflight directory verification failed: $dir"
+  (( verified += 1 ))
+done
+
+# 06 — Report without changing any file or claiming unperformed PDF tests.
+print -- '============================================='
+print -- 'AZIMI PUBLISHING ENGINE — STRUCTURE V1.3'
+print -- 'STATUS: PASS (directory structure only)'
+print -- "PROJECT ROOT: $ROOT"
+print -- "COURSE ROOT: $COURSE"
+print -- "SESSION 01: $SESSION"
+print -- "SESSION 01 PDF DESTINATION: $SESSION/out"
+print -- "DIRECTORIES VERIFIED: $verified"
+print -- "DIRECTORIES CREATED: $created"
+print -- "DIRECTORIES ALREADY PRESENT: $already_present"
+print -- 'EXISTING FILES: NOT EDITED, DELETED, OR OVERWRITTEN'
+print -- 'PDF FILES: NOT GENERATED OR MODIFIED'
+print -- 'SESSIONS 02–16: NOT CREATED OR MODIFIED'
+print -- 'CONTENT AND PDF QUALITY: NOT YET ASSESSED'
+print -- 'NEXT GATE: Owner-approved Session 01 content blueprint and source audit.'
+print -- '============================================='
