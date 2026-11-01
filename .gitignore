@@ -179,3 +179,9 @@ output/
 
 # macOS metadata
 .DS_Store
+
+.venv*/
+__pycache__/
+*.pyc
+.DS_Store
+courses/**/build/
