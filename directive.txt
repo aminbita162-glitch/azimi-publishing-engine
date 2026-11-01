@@ -25,6 +25,7 @@ azimi-publishing-engine/
   directive.txt
   README.md, HANDBOOK.md, AGENTS.md, SECURITY.md, THIRD_PARTY_NOTICES.md, CHANGELOG.md, TEST_LOG.md, LICENSE, requirements.txt
   agents/{amilus.txt,ali.txt,lili.txt,SHA256SUMS}
+  tickets/{TEMPLATE.txt,ID.txt,ID.handoff-ali.Rn.txt,ID.delivery.Rn.txt,ID.handoff-lili.Rn.txt,ID.audit.Rn.txt,ID.report.txt}
   engine/{build,audit,render,schemas,tests}/
   design-system/fonts/
   brand/NAME/{logo.png,brand.yaml,rights.md,forbidden.txt}

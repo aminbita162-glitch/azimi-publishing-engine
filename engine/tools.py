@@ -208,3 +208,79 @@ def deliver_pdf(project_root: Union[str, Path], document_dir: str, mode: str) ->
     }
     (folder / BUILD_DIR / f"delivery-{mode}.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return target
+
+
+TICKETS_DIR = "tickets"
+TICKET_FIELDS = ("TICKET-ID", "DOCUMENT", "VERSION", "GOAL", "INPUTS", "ACCEPTANCE")
+_TICKET_ID = re.compile(r"^T-[A-Z0-9]{2,8}-\d{3}$")
+_VERSION = re.compile(r"^\d+\.\d+\.\d+$")
+_DAY_DATE = re.compile(r"\b(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{2,4})\b")
+MAX_TICKET_BYTES = 20 * 1024
+
+
+def parse_ticket(text: str):
+    """Return {field: value}; a value continues on the following lines that start with two spaces."""
+    fields = {}
+    current = None
+    for number, raw in enumerate(text.splitlines(), start=1):
+        if not raw.strip():
+            continue
+        if raw.startswith("  ") and current:
+            fields[current] += " " + raw.strip()
+            continue
+        name, separator, value = raw.partition(":")
+        if not separator or name != name.upper() or not name.replace("-", "").isalpha():
+            raise ConfigError(f"ticket line {number} is not FIELD: value")
+        if name in fields:
+            raise ConfigError(f"ticket field {name} appears twice")
+        fields[name] = value.strip()
+        current = name
+    return fields
+
+
+def validate_ticket(project_root: Union[str, Path], ticket_path: str) -> List[str]:
+    """Return the list of problems of a ticket file (empty when it is valid)."""
+    from .schemas.meta import load_meta
+
+    root = Path(project_root).resolve(strict=True)
+    path = resolve_inside(root, ticket_path)
+    problems: List[str] = []
+    if path.parent != (root / TICKETS_DIR).resolve():
+        problems.append("a ticket must be a file directly inside the tickets folder")
+    if not path.is_file():
+        raise ConfigError(f"ticket not found: {ticket_path}")
+    if path.stat().st_size > MAX_TICKET_BYTES:
+        raise ConfigError("ticket is larger than 20 KB")
+    try:
+        text = path.read_text(encoding="utf-8")
+        text.encode("ascii")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return problems + ["a ticket must be plain ASCII text"]
+    fields = parse_ticket(text)
+    for name in TICKET_FIELDS:
+        if not fields.get(name):
+            problems.append(f"missing field {name}")
+    unknown = sorted(set(fields) - set(TICKET_FIELDS) - {"OWNER-DECISIONS"})
+    if unknown:
+        problems.append("unknown fields: " + ", ".join(unknown))
+    ticket_id = fields.get("TICKET-ID", "")
+    if ticket_id and not _TICKET_ID.match(ticket_id):
+        problems.append("TICKET-ID must look like T-S01-001")
+    if ticket_id and path.name != f"{ticket_id}.txt":
+        problems.append(f"the file name must be {ticket_id}.txt")
+    version = fields.get("VERSION", "")
+    if version and not _VERSION.match(version):
+        problems.append("VERSION must look like 2.2.0")
+    document = fields.get("DOCUMENT", "")
+    if document:
+        try:
+            folder = resolve_inside(root, document)
+            if not (folder / "meta.yaml").is_file():
+                problems.append("DOCUMENT has no meta.yaml")
+            elif version and load_meta(folder / "meta.yaml").version != version:
+                problems.append("VERSION must equal the version in the meta.yaml of the document")
+        except Exception:
+            problems.append("DOCUMENT must be a document folder inside the project")
+    if _DAY_DATE.search(text):
+        problems.append("dates may show month and year only")
+    return problems

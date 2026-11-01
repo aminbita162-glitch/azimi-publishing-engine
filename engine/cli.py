@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from . import __version__
 from .build.builder import build_document, check_document, verify_document
-from .tools import deliver_pdf, describe_fonts, render_previews, scaffold_document, verify_agents
+from .tools import validate_ticket, deliver_pdf, describe_fonts, render_previews, scaffold_document, verify_agents
 from .errors import EngineError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +48,8 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
     preview.add_argument("path")
     preview.add_argument("--pages", default="1,2,3", help="comma-separated page numbers (default 1,2,3)")
     commands.add_parser("fonts", help="list the font families that can be used in meta.yaml")
+    ticket = commands.add_parser("ticket", help="validate a ticket file in the tickets folder")
+    ticket.add_argument("path")
     commands.add_parser("agents", help="check the agent role files against agents/SHA256SUMS")
     deliver = commands.add_parser("deliver", help="copy a verified PDF to the draft or release folder (owner only)")
     deliver.add_argument("mode", choices=["draft", "release"])
@@ -66,6 +68,12 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
                 print(f"{'OK      ' if ok else 'MISMATCH'} {name:7s} {version}  {digest[:16]}")
             return 0 if all(ok for _, ok, _, _ in results) else 2
         relative = _relative_to_root(project_root, args.path)
+        if args.command == "ticket":
+            problems = validate_ticket(project_root, relative)
+            for problem in problems:
+                print(f"problem   : {problem}")
+            print(f"Ticket    : {'FAIL' if problems else 'PASS'} ({relative})")
+            return 2 if problems else 0
         if args.command == "deliver":
             target = deliver_pdf(project_root, relative, args.mode)
             print(f"Delivered : {target}")

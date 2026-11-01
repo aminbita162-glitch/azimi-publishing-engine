@@ -68,6 +68,7 @@ The document date is the only date the engine uses. It fixes the PDF timestamp, 
 | TEST_LOG.md | Evidence for every verification performed |
 | directive.txt | The fixed engineering rules of the project |
 | AGENTS.md | How the three working agents are defined, run and limited |
+| tickets/ | The tickets and the files the agents exchange (TEMPLATE.txt is the form) |
 | agents/ | The complete role definition of each agent (amilus.txt, ali.txt, lili.txt) and SHA256SUMS for them |
 | requirements.txt | Pinned Python libraries |
 | documentation/content-format.md | The only accepted input format |

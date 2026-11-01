@@ -14,3 +14,4 @@
 | T-017 | November 2026 | Document | Session 01 v2.1.0: check, build, audit 16 of 16 PASS, verify PASS, delivery checksum match | command output and delivery checksum | PASS |
 | T-018 | November 2026 | Agents | Role definitions installed; command access proven in the agent application (read folder, run engine fonts with the project interpreter, per-command approval); definition tests added | unittest output and application screenshots | PASS |
 | T-019 | November 2026 | Engine | Commands agents and deliver, agent checksums, directive V1.2 | python3 -m unittest discover output and engine agents output | PASS |
+| T-020 | November 2026 | Engine and agents | Ticket command and ticket files, agent role files with ticket rules, first ticket T-S01-001 validated | python3 -m unittest discover output and engine ticket output | PASS |

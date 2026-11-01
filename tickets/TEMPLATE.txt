@@ -1,0 +1,8 @@
+TICKET-ID: T-S00-000
+DOCUMENT: courses/NAME/session-00
+VERSION: 0.0.0
+GOAL: One paragraph that says what must be produced or changed. Several lines are allowed
+  when each continuation line starts with two spaces.
+INPUTS: The files, sources and decisions the agents may rely on.
+ACCEPTANCE: Measurable conditions. The ticket is done when all of them hold.
+OWNER-DECISIONS: none

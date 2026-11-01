@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.3 - November 2026
+
+- Tickets as files: the owner writes tickets/ID.txt, the agents exchange handoff, delivery, audit and report files in the tickets folder
+- Command ticket validates a ticket file; template and first ticket added
+- Agent role files version 2.3, 1.3 and 2.3 with the ticket rules and their narrow write permissions
+- Session 01 prepared as version 2.2.0
+
 ## 0.5.2 - November 2026
 
 - Command agents: checks the three agent role files against agents/SHA256SUMS

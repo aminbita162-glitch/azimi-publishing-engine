@@ -23,7 +23,7 @@ Azimi Publishing Engine turns a structured content folder into a branded PDF wit
 - Brand folder (logo, colors, rights) and selectable font families with checksum verification
 - Reproducibility check on every build (two renders compared) and a manifest with inputs, tool versions and checksums
 - Audit A1 to A16 on every build; a failed audit stops the release
-- Commands: build, check, verify, new, preview, fonts, agents, deliver
+- Commands: build, check, verify, new, preview, fonts, agents, deliver, ticket
 
 ## What this project is not
 
@@ -60,6 +60,7 @@ Python 3 with ReportLab for rendering, pypdf for audit and metadata, Pillow for 
     python3 -m engine verify courses/NAME
     python3 -m engine preview courses/NAME --pages 1,2,3
     python3 -m engine deliver draft courses/NAME
+    python3 -m engine ticket tickets/T-S01-001.txt
 
 Exit status: 0 success, 2 input error, 3 audit failure.
 

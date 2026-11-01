@@ -161,6 +161,7 @@ font cannot draw stops the build.
 | python3 -m engine preview PATH --pages 1,2,3 | Write PNG images of pages (needs PyMuPDF or pdftoppm) |
 | python3 -m engine fonts | List the font families |
 | python3 -m engine agents | Check the agent role files against agents/SHA256SUMS |
+| python3 -m engine ticket FILE | Validate a ticket file in the tickets folder |
 | python3 -m engine deliver draft PATH | Copy a verified PDF to the Drafts folder of the output folder (owner only) |
 | python3 -m engine deliver release PATH | Copy a verified PDF to the output folder; needs RELEASE_APPROVAL.txt with the line APPROVED and the SHA-256 of that PDF (owner only) |
 

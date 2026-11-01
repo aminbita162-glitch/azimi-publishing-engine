@@ -1,0 +1,11 @@
+TICKET-ID: T-S01-001
+DOCUMENT: courses/agentic-ai-masterclass/session-01
+VERSION: 2.2.0
+GOAL: Produce version 2.2.0 of Session 01 by applying three accepted changes to content.md.
+  (1) In the claims table with the id tab-evidence, add a row stating that the sample code is educational and must not be used as it is in high-risk production systems.
+  (2) After the section with the id sec-agency, add a short section on identity assurance and dual approval (two independent approvers), ending with what the reference code does not prove.
+  (3) After the section with the id sec-observability, add a short section on a tamper-evident audit log built as a hash chain, with no compliance claim and a statement of what a hash chain does not protect against.
+  Keep every existing id, every owner rule and the course profile. Give every new section and table a new unique id. Add new terms to the glossary. The complete listing in Appendix A must stay identical to the code pieces of chapter 4.
+INPUTS: content.md and meta.yaml of the document folder at version 2.1.0; the rules in agents/ali.txt and agents/amilus.txt. No outside sources are needed; if a statement needs a source, put it in OPEN QUESTIONS.
+ACCEPTANCE: python3 -m engine check passes with 0 lint problems. python3 -m engine build gives audit 16 of 16 PASS and python3 -m engine verify passes. The three changes are present. No other part of the content changes except cross-references and glossary entries that the changes require. Lili reports no BLOCKING finding.
+OWNER-DECISIONS: none
