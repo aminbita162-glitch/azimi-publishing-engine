@@ -285,4 +285,44 @@ def audit_pdf(
     lowest = min((ratio for _, ratio in contrast), default=0.0)
     add("A13", f"Text contrast is at least {MIN_CONTRAST}:1", weak, f"lowest ratio {lowest}:1 over {len(contrast)} pairs")
 
+    # A14 no active content
+    problems = []
+    root = reader.trailer["/Root"]
+    for key in ("/OpenAction", "/AA", "/AcroForm"):
+        if key in root:
+            problems.append(f"the catalog contains {key}")
+    names = root.get("/Names")
+    if names is not None:
+        for key in ("/JavaScript", "/EmbeddedFiles"):
+            if key in names.get_object():
+                problems.append(f"the name tree contains {key}")
+    forbidden_actions = {"/JavaScript", "/Launch", "/SubmitForm", "/ImportData", "/GoToR", "/GoToE", "/Rendition"}
+    for number, page in enumerate(pages, start=1):
+        if "/AA" in page:
+            problems.append(f"page {number} has page actions")
+        for annotation in page.get("/Annots") or []:
+            obj = annotation.get_object()
+            action = obj.get("/A")
+            if action is not None and str(action.get_object().get("/S")) in forbidden_actions:
+                problems.append(f"page {number}: forbidden action {action.get_object().get('/S')}")
+            if obj.get("/Subtype") in ("/FileAttachment", "/Widget", "/Movie", "/Sound", "/RichMedia", "/Screen"):
+                problems.append(f"page {number}: forbidden annotation {obj.get('/Subtype')}")
+    add("A14", "No active or embedded content", problems, "no scripts, launch actions, forms or attachments")
+
+    # A15 metadata hygiene
+    problems = []
+    path_like = re.compile(r"(/Users/|/home/|/tmp/|/var/|[A-Za-z]:\\|\\\\)")
+    if info is not None:
+        for key, value in info.items():
+            if path_like.search(str(value)):
+                problems.append(f"{key} contains a local path")
+    add("A15", "Metadata does not leak local paths", problems, "document information is clean")
+
+    # A16 text integrity
+    problems = []
+    for number, text in enumerate(texts, start=1):
+        if "\ufffd" in text or "(cid:" in text or any(ord(ch) < 32 and ch not in "\n\r\t\x0c" for ch in text):
+            problems.append(f"page {number} has replacement or control characters")
+    add("A16", "Text extracts cleanly", problems, "no replacement characters")
+
     return AuditReport(tuple(checks), tuple(fill), tuple(sorted(exempt)))

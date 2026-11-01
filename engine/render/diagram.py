@@ -406,7 +406,12 @@ def _sequence_layout(spec: DiagramSpec, primary, accent, line: int) -> _Layout:
         number += 1
         assert isinstance(item, Message)
         span = abs(centers[item.target] - centers[item.source])
-        width = max(span - 12, 96.0) if item.source != item.target else 190.0
+        if item.source != item.target:
+            width = max(span - 12, 96.0)
+        else:
+            x = centers[item.source]
+            room = x - 26 if x > CONTENT_WIDTH * 0.6 else CONTENT_WIDTH - x - 26
+            width = max(90.0, min(190.0, room))
         wrapped = _lines(f"{number}. {item.label}", "Body", EDGE_FONT, width)
         rows.append((item, wrapped, len(wrapped) * EDGE_FONT * 1.2 + 17))
     body_h = sum(row[2] for row in rows) + 10
@@ -446,12 +451,13 @@ def _sequence_layout(spec: DiagramSpec, primary, accent, line: int) -> _Layout:
                 canvas.setLineWidth(1.1)
                 canvas.setDash(4, 3) if item.reply else canvas.setDash()
                 if x1 == x2:
-                    canvas.line(x1, axis + 8, x1 + 16, axis + 8)
-                    canvas.line(x1 + 16, axis + 8, x1 + 16, axis)
+                    side = -1 if x1 > CONTENT_WIDTH * 0.6 else 1
+                    canvas.line(x1, axis + 8, x1 + side * 16, axis + 8)
+                    canvas.line(x1 + side * 16, axis + 8, x1 + side * 16, axis)
                     canvas.setDash()
-                    canvas.line(x1 + 16, axis, x1 + 1, axis)
-                    _arrowhead(canvas, x1 + 1, axis, -1, 0, ARROW)
-                    text_x, align = x1 + 22, "left"
+                    canvas.line(x1 + side * 16, axis, x1 + side * 1, axis)
+                    _arrowhead(canvas, x1 + side * 1, axis, -side, 0, ARROW)
+                    text_x, align = x1 + side * 22, ("left" if side == 1 else "right")
                 else:
                     canvas.line(x1, axis, x2, axis)
                     canvas.setDash()
@@ -469,6 +475,8 @@ def _sequence_layout(spec: DiagramSpec, primary, accent, line: int) -> _Layout:
                         canvas.rect(text_x - width / 2, baseline - 2, width, EDGE_FONT + 2, stroke=0, fill=1)
                         canvas.setFillColor(TEXT)
                         canvas.drawCentredString(text_x, baseline, text)
+                    elif align == "right":
+                        canvas.drawRightString(text_x, baseline, text)
                     else:
                         canvas.drawString(text_x, baseline, text)
             ops.append(draw_message)

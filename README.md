@@ -1,80 +1,80 @@
 # Azimi Publishing Engine
 
+> # ACTIVE DEVELOPMENT - NOT FINISHED - NOT READY FOR PRODUCTION USE
+> The engine builds and audits PDFs from the terminal today. Several planned parts do not exist yet. The exact list is under Roadmap.
+
 Deterministic, standards-driven engine for producing publication-grade PDF documents.
 
 AI Architect Amin Azimi | End-to-End System Development and Business Challenges | Azimi Innovation Lab
 
+Start with HANDBOOK.md. It explains what this project is and is not, how it works, every file, and how to build a PDF.
+
 ## Purpose
 
-Azimi Publishing Engine turns a structured content folder into a branded,
-accessible, reproducible PDF. The same input always produces the same output.
-It is built to produce the 16-session Agentic AI Masterclass and any later
-educational or commercial document.
+Azimi Publishing Engine turns a structured content folder into a branded PDF with a manifest and an audit report. It is built to typeset the 16-session Agentic AI Masterclass for senior engineers and later educational or commercial documents.
+
+## What works today (version 0.5.0, November 2026)
+
+- Strict input format with line-numbered errors; lint for forbidden terms, repeated words and course structure
+- Numbered chapters, sections, figures and tables with automatic cross-references, lists of figures and tables
+- Vector diagrams from text: flow, sequence and layers
+- Cover, imprint, contents, running header, page X of Y, and a mandatory Rights and License chapter from the brand
+- Colored code with line numbers, tables, figures and eight kinds of boxes
+- Brand folder (logo, colors, rights) and selectable font families with checksum verification
+- Reproducibility check on every build (two renders compared) and a manifest with inputs, tool versions and checksums
+- Audit A1 to A16 on every build; a failed audit stops the release
+- Commands: build, check, verify, new, preview, fonts
+
+## What this project is not
+
+Not a word processor, not a web service, not a content writer, not an accessibility-tagged (PDF/UA) or archival (PDF/A) producer, and not suitable for right-to-left or non-Latin scripts. See the Handbook, sections 2 and 13.
 
 ## Design principles
 
-- Determinism: identical inputs produce identical PDFs, byte for byte. Every build renders twice and compares.
+- Determinism: on the same software versions, identical inputs give identical bytes. Every build renders twice and compares. Across different software versions the bytes can differ with the same visible text; the manifest records the versions.
 - Separation of concerns: fixed rules, content, brand and engine are separate.
 - Evidence before release: every PDF passes an executable audit before it can be delivered.
 - Security by default: content is untrusted data, never executable.
-- Minimal context: every actor reads only what its task requires.
-
-## What a document contains
-
-- Cover with brand logo, title panel and document details
-- Imprint page with edition, publisher, copyright and rights summary
-- Linked contents with page numbers
-- Running header with the current chapter and a footer with page X of Y
-- Colored code with line numbers, tables that split cleanly, figures, and five kinds of boxes
-- Clickable links, document outline and embedded fonts
-- A mandatory Rights and License chapter supplied by the brand
 
 ## Architecture
 
-- directive.txt : the Root Master Engineering Directive (fixed rules, audits, filters, release control)
-- documentation/content-format.md : the only accepted input format (one folder per PDF with meta.yaml and content.md)
-- brand/ : one folder per brand with logo.png, brand.yaml and rights.md; replacing them re-brands every PDF
-- design-system/fonts : bundled fonts with license texts and checksums
-- engine/ : paths, schemas, parser, brand loader, renderer, syntax coloring, audit, builder, command line and tests
-- courses/ : course workspaces, one folder per session
-- AGENTS.md : operating rules and duties for the three working agents (content composer, builder, auditor)
-- TEST_LOG.md : evidence for every verification performed on this project
-- CHANGELOG.md : release history
+- directive.txt : the fixed engineering rules of the project
+- documentation/content-format.md : the only accepted input format
+- brand/ : one folder per brand with logo.png, brand.yaml, rights.md and optionally forbidden.txt
+- design-system/fonts : bundled fonts, license texts, checksums, optional fonts.yaml
+- engine/ : paths, schemas, parser, lint, brand loader, renderer, diagrams, syntax coloring, audit, builder, tools, command line and tests
+- courses/ : one folder per document
+- AGENTS.md : the planned duties of the three working agents; the agents are not built
+- TEST_LOG.md : evidence for every verification; CHANGELOG.md : release history
+- SECURITY.md and THIRD_PARTY_NOTICES.md
 
 ## Technology
 
-Python 3 with ReportLab for rendering, pypdf for audit and metadata,
-Pillow for images and PyYAML for configuration. Fonts are Carlito and
-Liberation Mono under the SIL Open Font License. Versions are pinned in
-requirements.txt.
-
-## Status
-
-Release 0.4.0 adds vector diagrams drawn from text (flow, sequence, layers),
-numbered chapters with automatic cross-references, numbered figure and table
-captions with lists, learning-objective, example and pitfall boxes, an 11 pt
-body text, and the audit checks A9 to A13 (links, numbering, text size, image
-resolution and color contrast). Release 0.3.0 added the layout engine, the
-executable audit, colored code, boxes, linked addresses, the imprint page and
-the mandatory rights chapter.
+Python 3 with ReportLab for rendering, pypdf for audit and metadata, Pillow for images and PyYAML for configuration. Fonts are Carlito and Liberation Mono under the SIL Open Font License. Versions are pinned in requirements.txt.
 
 ## Usage
 
+    python3 -m engine new courses/NAME --title "Title" --author "Author"
+    python3 -m engine check courses/NAME
     python3 -m engine build courses/NAME
+    python3 -m engine verify courses/NAME
+    python3 -m engine preview courses/NAME --pages 1,2,3
 
-The command reads meta.yaml and content.md from the document folder, renders the
-PDF twice to prove reproducibility, runs the audit and writes the PDF, its manifest
-and its audit into the build folder of that document. It exits with status 3 when
-the audit fails.
+Exit status: 0 success, 2 input error, 3 audit failure.
 
 ## Roadmap
 
-1. Delivery command with checksum verification into the output folder
-2. Quality filters Q01 to Q30 as executable checks, extending the current audit
-3. Three working agents under the rules in AGENTS.md
-4. Container packaging for local use
-5. Desktop distribution for users without a development agent
-6. Session 01 to Session 16 of the Agentic AI Masterclass
+Not built yet, in the order currently planned:
+
+1. Delivery command that copies the PDF to an output folder and verifies the checksum
+2. Quality filters Q01 to Q30 as executable checks, extending the audit
+3. Three working agents (content composer, builder, auditor) under the rules in AGENTS.md
+4. PDF/UA tagging and PDF/A output, which need a different or additional PDF writer than ReportLab
+5. More bundled font families; hyphenation
+6. Continuous integration
+7. Container packaging for local use
+8. Desktop distribution for users without a development agent; the license of the optional preview tool PyMuPDF must be reviewed first
+9. Sessions 01 to 16 of the Agentic AI Masterclass, built one by one; the sessions in courses/ today are trials
 
 ## Author
 
@@ -84,6 +84,4 @@ Founder of Azimi Innovation Lab.
 
 ## License
 
-All rights reserved. See the LICENSE file. All content in this repository
-belongs to Amin Azimi and Azimi Innovation Lab, except the bundled fonts, which
-keep their own open licenses.
+All rights reserved. See the LICENSE file. All content in this repository belongs to Amin Azimi and Azimi Innovation Lab, except the bundled fonts, which keep their own open licenses.

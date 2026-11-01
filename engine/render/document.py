@@ -249,6 +249,7 @@ class _Document(BaseDocTemplate):
             title=meta.title,
             author=meta.author,
             subject=meta.audience,
+            keywords=meta.keywords or "",
             creator="Azimi Publishing Engine",
             invariant=1,
             initialFontName="Body",

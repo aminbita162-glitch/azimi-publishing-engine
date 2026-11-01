@@ -13,7 +13,7 @@ import yaml
 from ..errors import ConfigError
 
 REQUIRED_KEYS = ("title", "author", "audience", "language", "version", "date", "output_name")
-OPTIONAL_KEYS = ("subtitle", "brand", "chapter_pages", "numbered")
+OPTIONAL_KEYS = ("subtitle", "brand", "chapter_pages", "numbered", "font", "profile", "keywords")
 DEFAULT_BRAND = "default"
 
 _LANGUAGE = re.compile(r"^[a-z]{2,3}(-[A-Z]{2})?$")
@@ -41,6 +41,9 @@ class Meta:
     brand: str = DEFAULT_BRAND
     chapter_pages: bool = False
     numbered: bool = False
+    font: str = "carlito"
+    profile: str = "plain"
+    keywords: Optional[str] = None
 
     @property
     def epoch(self) -> int:
@@ -111,7 +114,25 @@ def parse_meta(data: Any) -> Meta:
         numbered = data["numbered"]
         if not isinstance(numbered, bool):
             raise ConfigError("meta.yaml: numbered must be true or false")
-    return Meta(subtitle=subtitle, brand=brand, chapter_pages=chapter_pages, numbered=numbered, **values)
+    font = "carlito"
+    if "font" in data:
+        font = _text(data, "font")
+        if not _BRAND.match(font):
+            raise ConfigError("meta.yaml: font must be lowercase letters, digits and hyphens")
+    profile = "plain"
+    if "profile" in data:
+        profile = _text(data, "profile")
+        if profile not in ("plain", "course"):
+            raise ConfigError("meta.yaml: profile must be plain or course")
+    keywords = None
+    if "keywords" in data:
+        keywords = _text(data, "keywords")
+        if len(keywords) > 300:
+            raise ConfigError("meta.yaml: keywords exceed 300 characters")
+    return Meta(
+        subtitle=subtitle, brand=brand, chapter_pages=chapter_pages, numbered=numbered,
+        font=font, profile=profile, keywords=keywords, **values,
+    )
 
 
 def load_meta(path: Union[str, Path]) -> Meta:

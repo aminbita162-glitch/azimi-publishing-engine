@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0 - November 2026
+
+- Selectable font families (fonts.yaml, checksum verified)
+- Content lint: forbidden terms per brand, repeated words, course structure
+- Commands check, verify, new, preview and fonts
+- Audit A14 to A16: no active content, no local paths in metadata, clean text extraction
+- Manifest records tool versions, content statistics and a text hash
+- Sequence diagram self-messages no longer clip at the page edge
+- HANDBOOK, SECURITY and THIRD_PARTY_NOTICES added; README rewritten with the true status and roadmap
+
 ## 0.4.0 - November 2026
 
 - Vector diagrams drawn from text: flow, sequence and layers

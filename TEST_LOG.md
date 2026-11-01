@@ -10,3 +10,5 @@
 | T-013 | November 2026 | Document | Session 01 v1.1.0: build, audit PASS, delivery checksum match | build manifest and delivery checksum | PASS |
 | T-014 | November 2026 | Engine | Diagrams, numbering, cross-references, captions, new boxes, audit A9-A13 | python3 -m unittest discover output | PASS |
 | T-015 | November 2026 | Document | Session 01 v2.0.0: build, audit 13 of 13 PASS, delivery checksum match | build manifest and delivery checksum | PASS |
+| T-016 | November 2026 | Engine | Fonts, lint, check, verify, new, preview, fonts command, audit A14-A16, manifest additions | python3 -m unittest discover output | PASS |
+| T-017 | November 2026 | Document | Session 01 v2.1.0: check, build, audit 16 of 16 PASS, verify PASS, delivery checksum match | command output and delivery checksum | PASS |

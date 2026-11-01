@@ -1,0 +1,2 @@
+# Terms that must never appear in a document of this brand, one per line.
+# Add your own terms below this line; a build stops if one of them is found.

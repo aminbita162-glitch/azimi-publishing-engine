@@ -1121,11 +1121,11 @@ TABLE: tab-prov-3 | Provenance of packages/domain/src/agents.ts
 - Python json module: docs.python.org/3/library/json.html
 - Python hashlib module: docs.python.org/3/library/hashlib.html
 - JavaScript Number.isSafeInteger: developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isSafeInteger
-- NIST AI Risk Management Framework 1.0 (NIST AI 100-1), January 2023: nist.gov
-- OWASP GenAI Security Project, Top 10 for LLM Applications, 2026 edition: genai.owasp.org
-- OWASP Top 10 for Agentic Applications: genai.owasp.org
-- Microsoft documentation of the STRIDE threat model: learn.microsoft.com
-- CWE-367, Time-of-check Time-of-use (TOCTOU) Race Condition: cwe.mitre.org
+- NIST AI Risk Management Framework 1.0 (NIST AI 100-1), January 2023: nist.gov/itl/ai-risk-management-framework
+- OWASP GenAI Security Project, Top 10 for LLM Applications, 2026 edition: genai.owasp.org/llm-top-10/
+- OWASP Top 10 for Agentic Applications for 2026: genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026
+- Microsoft Learn, threat modeling framework (STRIDE): learn.microsoft.com/en-us/training/modules/tm-use-a-framework-to-identify-threats-and-find-ways-to-reduce-or-eliminate-risk/1b-threat-modeling-framework
+- CWE-367, Time-of-check Time-of-use (TOCTOU) Race Condition: cwe.mitre.org/data/definitions/367.html
 
 ## Before you move on {#sec-moveon}
 

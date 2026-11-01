@@ -28,6 +28,9 @@ Optional keys:
 - subtitle : at most 300 characters
 - brand : name of a folder under brand/ (default: default)
 - chapter_pages : true to start every level 1 heading on a new page; false (default) lets chapters flow continuously
+- font : the font family of the body text (default: carlito); run python3 -m engine fonts to list the choices
+- profile : plain (default) or course; a course requires every numbered chapter to have an OBJECTIVES box and a KEY box that starts with "Chapter summary"
+- keywords : text stored in the PDF keywords field, at most 300 characters
 - numbered : true to number chapters and sections (1, 1.1, 1.1.1) and to print lists of figures and tables; false (default)
 
 Unknown keys are rejected. The date is the only date used by the engine: it fixes the
@@ -124,6 +127,40 @@ Replacing the logo, brand.yaml and rights.md re-brands every PDF built with that
 Fonts are bundled in design-system/fonts and verified against SHA256SUMS before every build.
 System fonts are never used. All fonts are embedded in the PDF.
 
+## Lint
+
+Before rendering, the engine checks the content: terms listed in brand/NAME/forbidden.txt (one per line, # for comments)
+must not appear anywhere, including code and diagrams; a word must not be repeated directly ("the the"); and with
+profile: course every numbered chapter needs its objectives and its summary. A build stops at the first problem and
+python3 -m engine check lists all of them.
+
+## Fonts
+
+A font family is four TrueType files (regular, bold, italic, bold italic) in design-system/fonts, each listed in
+SHA256SUMS with its license text next to it. Families other than the built-in carlito are declared in
+design-system/fonts/fonts.yaml:
+
+    families:
+      my-family:
+        regular: MyFont-Regular.ttf
+        bold: MyFont-Bold.ttf
+        italic: MyFont-Italic.ttf
+        bolditalic: MyFont-BoldItalic.ttf
+
+Select it with font: my-family in meta.yaml. Only left-to-right Latin text is supported. A character the chosen
+font cannot draw stops the build.
+
+## Commands
+
+| Command | Purpose |
+|:--------|:--------|
+| python3 -m engine build PATH | Build the PDF, the manifest and the audit |
+| python3 -m engine check PATH | Validate and lint without writing files |
+| python3 -m engine verify PATH | Compare a built PDF with its manifest and run the audit again |
+| python3 -m engine new PATH --title T --author A | Create a new document folder |
+| python3 -m engine preview PATH --pages 1,2,3 | Write PNG images of pages (needs PyMuPDF or pdftoppm) |
+| python3 -m engine fonts | List the font families |
+
 ## Build and audit
 
     python3 -m engine build PATH
@@ -148,6 +185,9 @@ The audit runs automatically:
 | A11 | The smallest text is at least 7.5 pt |
 | A12 | Raster images have at least 140 dpi |
 | A13 | Every text and background pair has a WCAG contrast of at least 4.5:1 |
+| A14 | No scripts, launch actions, form fields, attachments or external-file actions |
+| A15 | The document information contains no local file paths |
+| A16 | Extracted text has no replacement or control characters |
 
 The command exits with status 0 when the audit passes, 2 for an input error and 3 when the audit fails.
 The manifest records the engine and library versions, the checksum of every input, font and brand file, the checksum of the PDF and the audit result.
