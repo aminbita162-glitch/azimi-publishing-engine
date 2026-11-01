@@ -13,7 +13,7 @@ This directive governs the entire Azimi Publishing Engine workspace. The owner r
 Build a reusable professional publishing infrastructure for internationally competitive, commercially publishable educational PDFs. Initial product: coherent 16-session English Agentic AI Masterclass. Highest demonstrable educational, engineering, visual, accessibility, security and publication quality. A 10/10 target is an objective, not an unsupported claim.
 
 02. TWO DISTINCT WORKFLOWS
-A — Owner-assisted terminal: approve objective and session brief; prepare compact command sequence; owner runs one command at a time in Mac VS Code; inspect actual output before next command; verify final PDF and evidence. About ten major steps is a planning preference, never a QA limit.
+A — Terminal workflow: approve objective and session brief; prepare compact command sequence; owner runs one command at a time in Mac VS Code; inspect actual output before next command; verify final PDF and evidence. About ten major steps is a planning preference, never a QA limit.
 B — VS Code development agent: read directives and run the same approved content, tokens, build entry point, pinned dependencies, audit suite and acceptance thresholds. Both workflows must be equivalent under identical inputs.
 
 03. DIRECTIVE HIERARCHY
@@ -58,7 +58,7 @@ Never fabricate facts, findings, API behavior, benchmarks, security guarantees, 
 Each session requires approved title, subtitle, session/document code, author, organization, version, status, language, audience, outcomes, prerequisites, complete content, code and language labels, figures/captions/alt text, references, brand assets, exact legal texts, page/distribution format, accessibility/archival targets and acceptance criteria. Missing essential content and conflicting hard constraints block. Record noncritical assumptions.
 
 10. DOCUMENT DESIGN SYSTEM
-Central versioned tokens govern A4 geometry, margins, typography, line heights, font embedding, colors/contrast, covers, chapter openers, headers/footers, code, tables, diagrams, captions, callouts, exercises, references and appendices. Use only supplied approved logos; no fabricated or distorted marks. Avoid decorative filler, artificial page padding, large unintended empty regions and poor page breaks. BODY FONT SIZE IS PENDING OWNER DECISION: PDF FORGE default 10–10.5 pt does not override any separately approved larger course requirement.
+Central versioned tokens govern A4 geometry, margins, typography, line heights, font embedding, colors/contrast, covers, chapter openers, headers/footers, code, tables, diagrams, captions, callouts, exercises, references and appendices. Use only supplied approved logos; no fabricated or distorted marks. Avoid decorative filler, artificial page padding, large unintended empty regions and poor page breaks. Body text is set at 10.5 pt unless an approved course requirement specifies a larger size.
 
 11. LANGUAGE AND ACCESSIBILITY
 Initial course English. Architect future RTL/multilingual support. Require Unicode correctness, embedding-licensed fonts, zero missing glyphs, correct shaping/bidi, logical reading order, tagged structure, document language, semantic headings, alt text, table headers, meaningful links, adequate contrast and navigation. Target and validate PDF/UA where required/feasible; automated checks alone do not prove accessibility.
@@ -67,7 +67,7 @@ Initial course English. Architect future RTL/multilingual support. Require Unico
 Phase 0 Intake; Phase 1 Normalize; Phase 2 Design tokens; Phase 3 Assets; Phase 4 Build; Phase 5 Rasterize/visual inspect; Phase 6 Audit A1–A9; Phase 7 Root-cause repair/regression; Phase 8 Controlled delivery. Each phase records machine-readable status and evidence. Failures block release.
 
 13. TOOLCHAIN AND REPRODUCIBILITY
-Select ONE primary pipeline per document after testing against requirements: pinned Markdown/HTML print CSS renderer, WeasyPrint, or XeLaTeX/LuaLaTeX. PDF ENGINE CHOICE IS PENDING TECHNICAL EVALUATION. Pin versions and use one reproducible entry point (e.g., make pdf). Offline local assets by default. Record environment, tool versions, fonts, inputs and hashes. Two builds from identical inputs must have identical rasterized page images; byte-identical PDF is a separate stronger target. No silent engine switching.
+Primary pipeline: ReportLab, pinned in requirements.txt. Pin versions and use one reproducible entry point (the engine build command). Offline local assets by default. Record environment, tool versions, fonts, inputs and hashes. Two builds from identical inputs must have identical rasterized page images; byte-identical PDF is a separate stronger target. No silent engine switching.
 
 14. DIAGRAMS, CODE AND TABLES
 Prefer vector diagrams readable at print size. Code listings require language, preserved semantics, untruncated lines, indentation, readable mono font and execution/test evidence for claims. Tables must avoid clipping, broken columns, unreadable content and uncontrolled splits. Every element serves a defined learning purpose.
@@ -106,7 +106,7 @@ Read-only external repos; protect secrets and personal information; no unapprove
 Owner approval required. Verify attribution, licensing of assets and code, citations, exact legal text, brand authorization, accessibility, integrity and QA evidence. Public GitHub availability does not automatically grant commercial reuse rights. Owner sets licensing and distribution strategy.
 
 23. EXECUTION COMMUNICATION
-Owner-assisted: one short actionable terminal command per step, explain effects/expected output, wait for actual results, never claim unobserved execution or silently skip failures. Autonomous approved production: minimize interaction; report blockers and evidenced results. User-facing handoff artifacts and commands MUST be supplied as downloadable plain-text .txt files suitable for transfer through Telegram.
+Terminal mode: each step is one short command with its expected effect and expected output; results are verified before the next step; no unobserved execution is ever claimed and no failure is silently skipped. Automated mode: interaction is minimized; blockers and evidenced results are reported. Handoff artifacts are written as plain-text files.
 
 24. RELEASE STATUS CONTRACT
 DRAFT (incomplete), BUILDING (production underway), AUDITING (validation), BLOCKED (mandatory failure), RELEASE CANDIDATE (gates pass; owner review pending), RELEASED (evidence and explicit owner publication authorization). Candidate does not mean published.

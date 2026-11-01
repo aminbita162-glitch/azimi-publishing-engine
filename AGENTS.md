@@ -73,4 +73,3 @@ A task may specialize them but never weaken them.
 
 - Final PDFs are delivered only to the Azimi-Publishing-Output folder on the Desktop, versioned, verified by SHA-256.
 - Dates written into any file show month and year only.
-- Nothing in this repository may refer to how it was produced; the author of record is Amin Azimi, Azimi Innovation Lab.
