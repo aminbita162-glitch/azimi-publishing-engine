@@ -97,7 +97,9 @@ def build_document(project_root: Union[str, Path], document_dir: Union[str, Path
     if again.pdf != result.pdf:
         raise EngineError("the document is not reproducible: two builds of the same input differ")
 
-    audit = audit_pdf(result.pdf, meta, result.exempt_pages)
+    audit = audit_pdf(
+        result.pdf, meta, result.exempt_pages, min_image_dpi=result.min_image_dpi, contrast=result.contrast
+    )
 
     inputs: Dict[str, str] = {
         "content.md": sha256_file(content_path),

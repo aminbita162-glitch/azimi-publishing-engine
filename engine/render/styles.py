@@ -21,8 +21,8 @@ MARGIN_BOTTOM = 24 * mm
 CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
 CONTENT_HEIGHT = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM
 
-BODY_SIZE = 10.5
-BODY_LEADING = 15.5
+BODY_SIZE = 11.0
+BODY_LEADING = 16.4
 CODE_SIZE = 8.6
 CODE_LEADING = 11.6
 CODE_PADDING_LEFT = 12
@@ -38,6 +38,8 @@ CODE_BACKGROUND = colors.HexColor("#F4F6F8")
 WARNING = colors.HexColor("#B42318")
 TIP = colors.HexColor("#0F766E")
 CHECKPOINT = colors.HexColor("#1D6FA5")
+EXAMPLE = colors.HexColor("#5B4B9A")
+PITFALL = colors.HexColor("#B54708")
 GUTTER_BACKGROUND = colors.HexColor("#E9EDF2")
 
 CODE_COLORS = {
@@ -66,6 +68,34 @@ def readable_on(background: colors.Color) -> colors.Color:
     return colors.white if luminance < 0.6 else TEXT
 
 
+def _linear(channel: float) -> float:
+    return channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4
+
+
+def luminance(color: colors.Color) -> float:
+    return 0.2126 * _linear(color.red) + 0.7152 * _linear(color.green) + 0.0722 * _linear(color.blue)
+
+
+def contrast_ratio(foreground: colors.Color, background: colors.Color) -> float:
+    """WCAG contrast ratio between two colors (1 to 21)."""
+    lighter, darker = sorted((luminance(foreground), luminance(background)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+MIN_CONTRAST = 4.5
+
+
+def ensure_contrast(color: colors.Color, background: colors.Color = colors.white) -> colors.Color:
+    """Darken color step by step until it reads on background with a WCAG ratio of at least 4.5."""
+    result = color
+    for step in range(1, 40):
+        if contrast_ratio(result, background) >= MIN_CONTRAST:
+            return result
+        factor = 1 - step * 0.02
+        result = colors.Color(color.red * factor, color.green * factor, color.blue * factor)
+    return result
+
+
 @dataclass(frozen=True)
 class Styles:
     """All styles used by the renderer."""
@@ -83,10 +113,14 @@ class Styles:
     code_label: ParagraphStyle
     code_number: ParagraphStyle
     caption: ParagraphStyle
+    table_caption: ParagraphStyle
+    list_entry: ParagraphStyle
+    list_heading: ParagraphStyle
     table_cell: ParagraphStyle
     table_header: ParagraphStyle
     callout_text: ParagraphStyle
     callout_label: ParagraphStyle
+    callout_item: ParagraphStyle
     warning_label: ParagraphStyle
     cover_title: ParagraphStyle
     cover_subtitle: ParagraphStyle
@@ -109,6 +143,7 @@ class Styles:
 def build_styles(brand: Brand) -> Styles:
     primary = colors.HexColor(brand.primary_color)
     accent = colors.HexColor(brand.accent_color)
+    accent_text = ensure_contrast(accent)
 
     body = ParagraphStyle(
         "Body", fontName="Body", fontSize=BODY_SIZE, leading=BODY_LEADING, textColor=TEXT,
@@ -132,7 +167,7 @@ def build_styles(brand: Brand) -> Styles:
         "Code", fontName="Mono", fontSize=CODE_SIZE, leading=CODE_LEADING, textColor=TEXT,
     )
     code_label = ParagraphStyle(
-        "CodeLabel", fontName="Mono-Bold", fontSize=7.5, leading=10, textColor=accent,
+        "CodeLabel", fontName="Mono-Bold", fontSize=8, leading=10.5, textColor=accent_text,
         spaceBefore=8, spaceAfter=5, keepWithNext=1,
     )
     code_number = ParagraphStyle(
@@ -142,6 +177,16 @@ def build_styles(brand: Brand) -> Styles:
         "Caption", parent=body, fontName="Body-Italic", fontSize=9, leading=12, textColor=MUTED,
         alignment=TA_CENTER, spaceBefore=4, spaceAfter=12,
     )
+    table_caption = ParagraphStyle(
+        "TableCaption", parent=body, fontName="Body-Bold", fontSize=9.5, leading=12.5, textColor=primary,
+        alignment=TA_LEFT, spaceBefore=6, spaceAfter=4,
+    )
+    list_entry = ParagraphStyle(
+        "ListEntry", parent=body, fontSize=10, leading=14, spaceBefore=1, spaceAfter=0, textColor=TEXT,
+    )
+    list_heading = ParagraphStyle(
+        "ListHeading", parent=h2, spaceBefore=18, spaceAfter=8,
+    )
     table_cell = ParagraphStyle(
         "TableCell", parent=body, fontSize=9.5, leading=13, spaceAfter=0,
     )
@@ -149,9 +194,13 @@ def build_styles(brand: Brand) -> Styles:
         "TableHeader", parent=table_cell, fontName="Body-Bold", textColor=readable_on(primary),
     )
     callout_text = ParagraphStyle("CalloutText", parent=body, fontSize=10, leading=14.5, spaceAfter=0)
+    callout_item = ParagraphStyle(
+        "CalloutItem", parent=callout_text, leftIndent=12, bulletIndent=0, spaceAfter=2,
+        bulletFontName="Body", bulletFontSize=10, bulletColor=accent,
+    )
     callout_label = ParagraphStyle(
         "CalloutLabel", parent=callout_text, fontName="Body-Bold", fontSize=8.5, leading=11,
-        textColor=accent, spaceAfter=3,
+        textColor=accent_text, spaceAfter=3,
     )
     warning_label = ParagraphStyle("WarningLabel", parent=callout_label, textColor=WARNING)
     cover_title = ParagraphStyle(
@@ -164,7 +213,7 @@ def build_styles(brand: Brand) -> Styles:
     cover_meta = ParagraphStyle("CoverMeta", parent=body, fontSize=11, leading=16, spaceAfter=3)
     cover_meta_label = ParagraphStyle(
         "CoverMetaLabel", parent=cover_meta, fontName="Body-Bold", fontSize=8.5, leading=11,
-        textColor=accent, spaceBefore=10, spaceAfter=1,
+        textColor=accent_text, spaceBefore=10, spaceAfter=1,
     )
     cover_tagline = ParagraphStyle(
         "CoverTagline", parent=body, fontSize=9.5, leading=13, textColor=MUTED, spaceBefore=10, spaceAfter=0,
@@ -176,7 +225,7 @@ def build_styles(brand: Brand) -> Styles:
         "ImprintSubtitle", parent=body, fontSize=11.5, leading=16, textColor=MUTED, spaceAfter=10,
     )
     imprint_label = ParagraphStyle(
-        "ImprintLabel", parent=body, fontName="Body-Bold", fontSize=8, leading=11, textColor=accent,
+        "ImprintLabel", parent=body, fontName="Body-Bold", fontSize=8, leading=11, textColor=accent_text,
         spaceBefore=12, spaceAfter=1,
     )
     imprint_text = ParagraphStyle("ImprintText", parent=body, fontSize=10, leading=14.5, spaceAfter=2)
@@ -191,8 +240,8 @@ def build_styles(brand: Brand) -> Styles:
 
     return Styles(
         primary=primary, accent=accent, on_primary=readable_on(primary), body=body, body_keep=body_keep, list_item=list_item, h1=h1, h2=h2, h3=h3,
-        code=code, code_label=code_label, code_number=code_number, caption=caption, table_cell=table_cell,
-        table_header=table_header, callout_text=callout_text, callout_label=callout_label,
+        code=code, code_label=code_label, code_number=code_number, caption=caption, table_caption=table_caption, list_entry=list_entry, list_heading=list_heading, table_cell=table_cell,
+        table_header=table_header, callout_text=callout_text, callout_label=callout_label, callout_item=callout_item,
         warning_label=warning_label, cover_title=cover_title, cover_subtitle=cover_subtitle,
         cover_meta=cover_meta, cover_meta_label=cover_meta_label, cover_tagline=cover_tagline,
         imprint_title=imprint_title, imprint_subtitle=imprint_subtitle, imprint_label=imprint_label,

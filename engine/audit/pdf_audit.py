@@ -19,6 +19,9 @@ from ..schemas.meta import Meta
 MAX_BLANK_RATIO = 0.28
 MAX_PDF_BYTES = 25 * 1024 * 1024
 MIN_PAGE_TEXT = 20
+MIN_FONT_SIZE = 7.5
+MIN_IMAGE_DPI = 140.0
+MIN_CONTRAST = 4.5
 A4_TOLERANCE = 1.0
 
 
@@ -106,6 +109,8 @@ def audit_pdf(
     exempt_pages: Sequence[int],
     expect_outline: bool = True,
     max_blank_ratio: float = MAX_BLANK_RATIO,
+    min_image_dpi: Optional[float] = None,
+    contrast: Sequence[Tuple[str, float]] = (),
 ) -> AuditReport:
     """Run all audit checks on pdf and return the report."""
     reader = PdfReader(io.BytesIO(pdf))
@@ -209,5 +214,75 @@ def audit_pdf(
     # A8 size
     add("A8", "File size is reasonable", [f"{len(pdf)} bytes"] if len(pdf) > MAX_PDF_BYTES else [],
         f"{len(pdf) // 1024} KB")
+
+    # A9 internal links land on a page
+    problems = []
+    landed = 0
+    for number, page in enumerate(pages, start=1):
+        for annotation in page.get("/Annots") or []:
+            obj = annotation.get_object()
+            if obj.get("/Subtype") != "/Link":
+                continue
+            destination = obj.get("/Dest")
+            action = obj.get("/A")
+            if destination is None and action is not None:
+                action = action.get_object()
+                if action.get("/S") == "/URI":
+                    continue
+                destination = action.get("/D")
+            if destination is None:
+                continue
+            try:
+                if isinstance(destination, (str, bytes)) or not isinstance(destination, list):
+                    resolved = reader.named_destinations.get(str(destination))
+                    target = reader.get_destination_page_number(resolved) if resolved is not None else -1
+                else:
+                    target = reader.get_page_number(destination[0].get_object())
+            except Exception:
+                target = -1
+            if target < 0 or target >= len(pages):
+                problems.append(f"page {number}: a link points nowhere")
+            else:
+                landed += 1
+    add("A9", "Internal links land on a page", problems, f"{landed} internal links resolve")
+
+    # A10 figure and table numbers are continuous
+    problems = []
+    for label in ("Figure", "Table"):
+        numbers = sorted({int(n) for text in texts for n in re.findall(rf"(?m)^{label} (\d+)\. ", text)})
+        if numbers and numbers != list(range(1, numbers[-1] + 1)):
+            problems.append(f"{label} numbers are {numbers}")
+    add("A10", "Figure and table numbers are continuous", problems, "numbering has no gaps")
+
+    # A11 smallest text
+    sizes: List[float] = []
+    for page in pages:
+        def visit_size(text, cm, tm, font_dict, font_size, _sizes=sizes):
+            if text.strip() and font_size:
+                a = tm[0] * cm[0] + tm[1] * cm[2]
+                d = tm[2] * cm[1] + tm[3] * cm[3]
+                b = tm[0] * cm[1] + tm[1] * cm[3]
+                c = tm[2] * cm[0] + tm[3] * cm[2]
+                scale = abs(a * d - b * c) ** 0.5
+                _sizes.append(round(font_size * scale, 2))
+
+        page.extract_text(visitor_text=visit_size)
+    smallest = min(sizes) if sizes else 0.0
+    add("A11", f"Smallest text is at least {MIN_FONT_SIZE} pt",
+        [f"smallest text is {smallest} pt"] if sizes and smallest < MIN_FONT_SIZE else [],
+        f"smallest text {smallest} pt")
+
+    # A12 image resolution
+    if min_image_dpi is None:
+        add("A12", "Raster images are sharp enough", [], "no raster figures")
+    else:
+        add("A12", f"Raster images have at least {int(MIN_IMAGE_DPI)} dpi",
+            [f"lowest image resolution is {round(min_image_dpi)} dpi"] if min_image_dpi < MIN_IMAGE_DPI else [],
+            f"lowest image resolution {round(min_image_dpi)} dpi")
+
+    # A13 colour contrast
+    weak = [f"{name} {ratio}:1" for name, ratio in contrast if ratio < MIN_CONTRAST]
+    lowest = min((ratio for _, ratio in contrast), default=0.0)
+    add("A13", f"Text contrast is at least {MIN_CONTRAST}:1", weak, f"lowest ratio {lowest}:1 over {len(contrast)} pairs")
 
     return AuditReport(tuple(checks), tuple(fill), tuple(sorted(exempt)))

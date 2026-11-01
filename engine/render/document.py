@@ -47,6 +47,7 @@ from ..build.parser import (
     BulletList,
     Callout,
     Code,
+    Diagram as DiagramBlock,
     Heading,
     Image as ImageBlock,
     NumberedList,
@@ -58,10 +59,11 @@ from .. import __version__
 from ..errors import ConfigError, ContentError, EngineError
 from ..paths import resolve_inside
 from ..schemas.meta import Meta
+from .diagram import DiagramFlowable, build_layout
 from .fonts import check_glyphs
 from .highlight import NUMBERED_LANGUAGES, PLAIN, classify, normalize_language
 from .highlight import to_markup as highlight_markup
-from .inline import to_markup, to_plain
+from .inline import LINK_COLOR, reference_ids, to_markup, to_plain
 from .styles import (
     CHECKPOINT,
     CODE_BACKGROUND,
@@ -71,6 +73,8 @@ from .styles import (
     CODE_PADDING_RIGHT,
     CODE_PADDING_VERTICAL,
     CODE_SIZE,
+    EXAMPLE,
+    PITFALL,
     CONTENT_HEIGHT,
     CONTENT_WIDTH,
     GUTTER_BACKGROUND,
@@ -87,10 +91,13 @@ from .styles import (
     ZEBRA,
     Styles,
     build_styles,
+    contrast_ratio,
+    ensure_contrast,
     mix_with_white,
 )
 
 DEFAULT_IMAGE_DPI = 150.0
+IMAGE_DPI: List[float] = []
 MAX_IMAGE_HEIGHT = CONTENT_HEIGHT * 0.36
 MIN_FIGURE_SCALE = 0.75
 MIN_LAST_CHUNK = 3
@@ -112,6 +119,8 @@ class RenderResult:
     pages: int
     images: Tuple[str, ...]
     exempt_pages: Tuple[int, ...]
+    min_image_dpi: Optional[float] = None
+    contrast: Tuple[Tuple[str, float], ...] = ()
 
 
 class HeadingParagraph(Paragraph):
@@ -125,6 +134,99 @@ class HeadingParagraph(Paragraph):
 
 class ForcedBreak(PageBreak):
     """A page break that is intentional; the audit does not count its page as underfilled."""
+
+
+class CaptionParagraph(Paragraph):
+    """A table caption that is also an entry of the list of tables."""
+
+    def __init__(self, markup: str, style, entry_text: str, key: str) -> None:
+        super().__init__(markup, style)
+        self.list_entry = ("LOTEntry", entry_text, key)
+
+
+class _ListOf(TableOfContents):
+    """A list of figures or tables, filled from captions of one kind."""
+
+    def __init__(self, kind: str, style: ParagraphStyle) -> None:
+        super().__init__()
+        self.kind = kind
+        self.levelStyles = [style]
+        self.dotsMinLevel = 0
+        self.tableStyle = TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Body"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]
+        )
+
+    def notify(self, kind, stuff):
+        if kind == self.kind:
+            self.addEntry(*stuff)
+
+
+@dataclass(frozen=True)
+class Analysis:
+    """Numbers and cross-reference labels of one block sequence, independent of page layout."""
+
+    headings: Dict[int, Optional[str]]
+    figures: Dict[int, int]
+    tables: Dict[int, int]
+    refs: Dict[str, str]
+    figure_entries: Tuple[Tuple[int, str], ...]
+    table_entries: Tuple[Tuple[int, str], ...]
+
+
+def analyze(blocks: Sequence[Block], numbered: bool, known: Optional[Dict[str, str]] = None) -> Analysis:
+    """Number headings, figures and tables and collect the labels of every id.
+
+    known holds ids that are already taken elsewhere; a repeated id is an error.
+    """
+    counters = [0, 0, 0]
+    figure = table = 0
+    headings: Dict[int, Optional[str]] = {}
+    figures: Dict[int, int] = {}
+    tables: Dict[int, int] = {}
+    refs: Dict[str, str] = {}
+    taken = dict(known or {})
+    figure_entries: List[Tuple[int, str]] = []
+    table_entries: List[Tuple[int, str]] = []
+
+    def register(ref_id: Optional[str], label: str, line: int) -> None:
+        if ref_id is None:
+            return
+        if ref_id in taken or ref_id in refs:
+            raise ContentError(f"the id '{ref_id}' is used more than once", line)
+        refs[ref_id] = label
+
+    for position, block in enumerate(blocks):
+        if isinstance(block, Heading):
+            number: Optional[str] = None
+            if numbered and block.numbered:
+                counters[block.level - 1] += 1
+                for deeper in range(block.level, 3):
+                    counters[deeper] = 0
+                number = ".".join(str(n) for n in counters[: block.level])
+            headings[position] = number
+            if number:
+                label = f"Chapter {number}" if block.level == 1 else f"Section {number}"
+            else:
+                label = '"' + to_plain(block.text, block.line) + '"'
+            register(block.ref_id, label, block.line)
+        elif isinstance(block, (ImageBlock, DiagramBlock)) and block.caption:
+            figure += 1
+            figures[position] = figure
+            figure_entries.append((figure, block.caption))
+            register(block.ref_id, f"Figure {figure}", block.line)
+        elif isinstance(block, TableBlock) and block.caption:
+            table += 1
+            tables[position] = table
+            table_entries.append((table, block.caption))
+            register(block.ref_id, f"Table {table}", block.line)
+    return Analysis(headings, figures, tables, refs, tuple(figure_entries), tuple(table_entries))
 
 
 class _Document(BaseDocTemplate):
@@ -200,6 +302,11 @@ class _Document(BaseDocTemplate):
             return
         self._count_on_page[page] = self._count_on_page.get(page, 0) + 1
         self._start_chapter.setdefault(page, self._chapter)
+        entry = getattr(flowable, "list_entry", None)
+        if entry is not None:
+            kind, text, key = entry
+            self.canv.bookmarkPage(key)
+            self.notify(kind, (0, text, page, key))
         if isinstance(flowable, HeadingParagraph):
             if self.body_start_page is None:
                 self.body_start_page = page
@@ -411,14 +518,14 @@ def _column_widths(header: Sequence[str], rows: Sequence[Sequence[str]]) -> List
     return widths
 
 
-def _table_flowable(block: TableBlock, styles: Styles) -> Table:
+def _table_flowable(block: TableBlock, styles: Styles, refs: Dict[str, str]) -> Table:
     for cell in list(block.header) + [c for row in block.rows for c in row]:
         check_glyphs(cell, "Body", block.line)
     header_styles = [styles.aligned(styles.table_header, a) for a in block.align]
     cell_styles = [styles.aligned(styles.table_cell, a) for a in block.align]
-    data = [[Paragraph(to_markup(text, block.line), header_styles[i]) for i, text in enumerate(block.header)]]
+    data = [[Paragraph(to_markup(text, block.line, refs), header_styles[i]) for i, text in enumerate(block.header)]]
     for row in block.rows:
-        data.append([Paragraph(to_markup(text, block.line), cell_styles[i]) for i, text in enumerate(row)])
+        data.append([Paragraph(to_markup(text, block.line, refs), cell_styles[i]) for i, text in enumerate(row)])
     table = Table(data, colWidths=_column_widths(block.header, block.rows), repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
@@ -439,21 +546,48 @@ def _table_flowable(block: TableBlock, styles: Styles) -> Table:
     return table
 
 
-def _callout_flowable(block: Callout, styles: Styles) -> Table:
-    check_glyphs(block.text, "Body", block.line)
-    colors_by_kind = {
-        "NOTE": (styles.accent, "NOTE"),
-        "WARNING": (WARNING, "WARNING"),
-        "TIP": (TIP, "TIP"),
-        "KEY": (styles.primary, "KEY POINT"),
-        "CHECKPOINT": (CHECKPOINT, "CHECKPOINT"),
+CALLOUT_LABELS = {
+    "NOTE": "NOTE",
+    "WARNING": "WARNING",
+    "TIP": "TIP",
+    "KEY": "KEY POINT",
+    "CHECKPOINT": "CHECKPOINT",
+    "OBJECTIVES": "LEARNING OBJECTIVES",
+    "EXAMPLE": "WORKED EXAMPLE",
+    "PITFALL": "COMMON PITFALL",
+}
+CALLOUT_PART_SEPARATOR = " || "
+
+
+def callout_colors(styles: Styles) -> Dict[str, colors.Color]:
+    return {
+        "NOTE": styles.accent,
+        "WARNING": WARNING,
+        "TIP": TIP,
+        "KEY": styles.primary,
+        "CHECKPOINT": CHECKPOINT,
+        "OBJECTIVES": styles.primary,
+        "EXAMPLE": EXAMPLE,
+        "PITFALL": PITFALL,
     }
-    color, label = colors_by_kind[block.kind]
-    label_style = ParagraphStyle(f"{block.kind}Label", parent=styles.callout_label, textColor=color)
-    content = [
-        Paragraph(label, label_style),
-        Paragraph(to_markup(block.text, block.line), styles.callout_text),
-    ]
+
+
+def _callout_flowable(block: Callout, styles: Styles, refs: Dict[str, str]) -> Table:
+    check_glyphs(block.text, "Body", block.line)
+    color = callout_colors(styles)[block.kind]
+    label = CALLOUT_LABELS[block.kind]
+    tint = mix_with_white(color, 0.92)
+    label_style = ParagraphStyle(
+        f"{block.kind}Label", parent=styles.callout_label, textColor=ensure_contrast(color, tint)
+    )
+    parts = [part.strip() for part in block.text.split(CALLOUT_PART_SEPARATOR) if part.strip()]
+    content = [Paragraph(label, label_style)]
+    for part in parts:
+        markup = to_markup(part, block.line, refs)
+        if block.kind == "OBJECTIVES":
+            content.append(Paragraph(markup, styles.callout_item, bulletText="\u2022"))
+        else:
+            content.append(Paragraph(markup, styles.callout_text))
     table = Table([[content]], colWidths=[CONTENT_WIDTH], hAlign="LEFT")
     table.setStyle(
         TableStyle(
@@ -485,8 +619,11 @@ class Figure(Flowable):
     then, the whole figure moves to the next page.
     """
 
-    def __init__(self, path: str, width: float, height: float, caption: Optional[Paragraph]) -> None:
+    def __init__(
+        self, path: str, width: float, height: float, caption: Optional[Paragraph], entry=None
+    ) -> None:
         super().__init__()
+        self.list_entry = entry
         self._path = path
         self._width = width
         self._height = height
@@ -539,27 +676,67 @@ def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[Path, float, float]:
         raise ContentError(f"image is too large: {block.path}", block.line)
     dpi = float(raw_dpi) if raw_dpi and float(raw_dpi) >= 36 else DEFAULT_IMAGE_DPI
     width, height = _scaled_size(width_px, height_px, dpi, CONTENT_WIDTH, MAX_IMAGE_HEIGHT)
+    IMAGE_DPI.append(width_px / (width / 72.0))
     return path, width, height
 
 
-def _image_flowable(block: ImageBlock, doc_dir: Path, styles: Styles, figure: int, used: List[str]) -> List:
+def short_caption(text: str) -> str:
+    """The first sentence of a caption, used in the lists of figures and tables."""
+    cut = text.find(". ")
+    return text if cut == -1 else text[: cut + 1]
+
+
+def _caption_markup(label: str, number: int, text: str, line: int, refs: Dict[str, str], ref_id: Optional[str]) -> str:
+    check_glyphs(text, "Body", line)
+    anchor = f'<a name="{ref_id}"/>' if ref_id else ""
+    return f"{anchor}{label} {number}. {to_markup(text, line, refs)}"
+
+
+def _image_flowable(
+    block: ImageBlock, doc_dir: Path, styles: Styles, number: Optional[int], used: List[str], refs: Dict[str, str]
+) -> List:
     path, width, height = _figure_size(block, doc_dir)
     used.append(block.path)
     caption = None
-    if block.caption:
-        check_glyphs(block.caption, "Body", block.line)
-        caption = Paragraph(f"Figure {figure}. {to_markup(block.caption, block.line)}", styles.caption)
-    return [Figure(str(path), width, height, caption)]
+    entry = None
+    if block.caption and number is not None:
+        markup = _caption_markup("Figure", number, block.caption, block.line, refs, block.ref_id)
+        caption = Paragraph(markup, styles.caption)
+        entry = ("LOFEntry", f"Figure {number}. {short_caption(to_plain(block.caption, block.line))}", f"list-figure-{number}")
+    return [Figure(str(path), width, height, caption, entry)]
 
 
-def _list_flowable(block, styles: Styles, numbered: bool) -> List:
+def _diagram_flowable(
+    block: DiagramBlock, styles: Styles, number: Optional[int], refs: Dict[str, str]
+) -> List:
+    layout = build_layout(block.spec, styles.primary, styles.accent, block.line)
+    caption = None
+    entry = None
+    if block.caption and number is not None:
+        markup = _caption_markup("Figure", number, block.caption, block.line, refs, block.ref_id)
+        caption = Paragraph(markup, styles.caption)
+        entry = ("LOFEntry", f"Figure {number}. {short_caption(to_plain(block.caption, block.line))}", f"list-figure-{number}")
+    flowable = DiagramFlowable(layout, caption, block.caption or "")
+    flowable.list_entry = entry
+    return [flowable]
+
+
+def _table_caption(block: TableBlock, styles: Styles, number: int, refs: Dict[str, str]) -> Paragraph:
+    markup = _caption_markup("Table", number, block.caption or "", block.line, refs, block.ref_id)
+    return CaptionParagraph(
+        markup, styles.table_caption, f"Table {number}. {short_caption(to_plain(block.caption or '', block.line))}",
+        f"list-table-{number}",
+    )
+
+
+def _list_flowable(block, styles: Styles, numbered: bool, refs: Dict[str, str]) -> List:
     for item in block.items:
         check_glyphs(item, "Body", block.line)
     items = [
-        ListItem(Paragraph(to_markup(text, block.line), styles.list_item), leftIndent=18) for text in block.items
+        ListItem(Paragraph(to_markup(text, block.line, refs), styles.list_item), leftIndent=18) for text in block.items
     ]
     common = dict(
-        leftIndent=18, bulletFontName="Body-Bold" if numbered else "Body", bulletFontSize=10.5,
+        leftIndent=18, bulletFontName="Body-Bold" if numbered else "Body", bulletFontSize=11,
         bulletColor=styles.accent,
     )
     if numbered:
@@ -686,21 +863,31 @@ def _toc(styles: Styles) -> TableOfContents:
     return toc
 
 
-def validate_inline(blocks: Sequence[Block]) -> None:
-    """Raise ContentError for the first block whose inline markers are not valid."""
-    for block in blocks:
-        texts: List[str] = []
-        if isinstance(block, (Heading, ParagraphBlock, Callout)):
-            texts.append(block.text)
-        elif isinstance(block, (BulletList, NumberedList)):
-            texts.extend(block.items)
-        elif isinstance(block, TableBlock):
-            texts.extend(block.header)
-            texts.extend(cell for row in block.rows for cell in row)
-        elif isinstance(block, ImageBlock) and block.caption:
+def _inline_texts(block: Block) -> List[str]:
+    texts: List[str] = []
+    if isinstance(block, (Heading, ParagraphBlock)):
+        texts.append(block.text)
+    elif isinstance(block, Callout):
+        texts.extend(part for part in block.text.split(CALLOUT_PART_SEPARATOR) if part.strip())
+    elif isinstance(block, (BulletList, NumberedList)):
+        texts.extend(block.items)
+    elif isinstance(block, TableBlock):
+        texts.extend(block.header)
+        texts.extend(cell for row in block.rows for cell in row)
+        if block.caption:
             texts.append(block.caption)
-        for text in texts:
-            to_markup(text, block.line)
+    elif isinstance(block, (ImageBlock, DiagramBlock)) and block.caption:
+        texts.append(block.caption)
+    return texts
+
+
+def validate_inline(blocks: Sequence[Block], refs: Optional[Dict[str, str]] = None) -> None:
+    """Raise ContentError for the first block whose inline markers or cross-references are not valid."""
+    for block in blocks:
+        for text in _inline_texts(block):
+            if isinstance(block, Heading) and reference_ids(text):
+                raise ContentError("a heading cannot contain a cross-reference", block.line)
+            to_markup(text, block.line, refs)
 
 
 def _break_page(story: List) -> None:
@@ -710,13 +897,27 @@ def _break_page(story: List) -> None:
     story.append(ForcedBreak())
 
 
+def _heading_markup(block: Heading, number: Optional[str]) -> Tuple[str, str]:
+    markup = to_markup(block.text, block.line)
+    plain = to_plain(block.text, block.line)
+    anchor = f'<a name="{block.ref_id}"/>' if block.ref_id else ""
+    if number:
+        return f"{anchor}{number}&nbsp;&nbsp;{markup}", f"{number}  {plain}"
+    return f"{anchor}{markup}", plain
+
+
 def _story(
-    blocks: Sequence[Block], doc_dir: Path, styles: Styles, chapter_pages: bool
+    blocks: Sequence[Block],
+    doc_dir: Path,
+    styles: Styles,
+    chapter_pages: bool,
+    analysis: Analysis,
+    refs: Dict[str, str],
 ) -> Tuple[List, List[str]]:
     story: List = []
     images: List[str] = []
-    figure = 0
     seen_h1 = False
+    visual = (TableBlock, ImageBlock, DiagramBlock)
 
     for position, block in enumerate(blocks):
         following = blocks[position + 1] if position + 1 < len(blocks) else None
@@ -731,41 +932,46 @@ def _story(
                         story.append(CondPageBreak(CHAPTER_MIN_SPACE))
                 seen_h1 = True
             second = blocks[position + 2] if position + 2 < len(blocks) else None
-            if isinstance(following, (TableBlock, ImageBlock)):
+            if isinstance(following, visual):
                 # A table or a figure may split or shrink, so the heading is not chained to it as one
                 # unbreakable group; instead there must be room for the heading and the first rows.
                 style = ParagraphStyle(f"{style.name}Free", parent=style, keepWithNext=0)
                 if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
                     story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE))
-            elif isinstance(following, ParagraphBlock) and isinstance(second, (TableBlock, ImageBlock)):
+            elif isinstance(following, ParagraphBlock) and isinstance(second, visual):
                 if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
                     story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE + 12 * mm))
-            story.append(
-                HeadingParagraph(to_markup(block.text, block.line), style, block.level, to_plain(block.text, block.line))
-            )
+            markup, plain = _heading_markup(block, analysis.headings.get(position))
+            story.append(HeadingParagraph(markup, style, block.level, plain))
         elif isinstance(block, ParagraphBlock):
             check_glyphs(block.text, "Body", block.line)
             previous = blocks[position - 1] if position > 0 else None
-            if isinstance(following, (TableBlock, ImageBlock)) and not isinstance(previous, Heading):
+            if isinstance(following, visual) and not isinstance(previous, Heading):
                 if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
                     story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE))
             introduces = isinstance(following, Code) and len(block.text) <= KEEP_WITH_NEXT_MAX
             style = styles.body_keep if introduces else styles.body
-            story.append(Paragraph(to_markup(block.text, block.line), style))
+            story.append(Paragraph(to_markup(block.text, block.line, refs), style))
         elif isinstance(block, BulletList):
-            story.extend(_list_flowable(block, styles, numbered=False))
+            story.extend(_list_flowable(block, styles, False, refs))
         elif isinstance(block, NumberedList):
-            story.extend(_list_flowable(block, styles, numbered=True))
+            story.extend(_list_flowable(block, styles, True, refs))
         elif isinstance(block, Code):
             story.extend(_code_flowables(block, styles))
         elif isinstance(block, TableBlock):
-            story.append(_table_flowable(block, styles))
+            number = analysis.tables.get(position)
+            if number is not None:
+                if story and not isinstance(story[-1], (PageBreak, CondPageBreak, HeadingParagraph)):
+                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE - 8 * mm))
+                story.append(_table_caption(block, styles, number, refs))
+            story.append(_table_flowable(block, styles, refs))
             story.append(Spacer(1, 12))
         elif isinstance(block, ImageBlock):
-            figure += 1
-            story.extend(_image_flowable(block, doc_dir, styles, figure, images))
+            story.extend(_image_flowable(block, doc_dir, styles, analysis.figures.get(position), images, refs))
+        elif isinstance(block, DiagramBlock):
+            story.extend(_diagram_flowable(block, styles, analysis.figures.get(position), refs))
         elif isinstance(block, Callout):
-            story.append(_callout_flowable(block, styles))
+            story.append(_callout_flowable(block, styles, refs))
             story.append(Spacer(1, 12))
         elif isinstance(block, PageBreakBlock):
             _break_page(story)
@@ -781,9 +987,12 @@ def _assemble(
     brand: Brand,
     doc_dir: Path,
     styles: Styles,
+    body_analysis: Analysis,
+    rights_analysis: Analysis,
+    refs: Dict[str, str],
 ) -> Tuple[List, List[str]]:
-    body_story, images = _story(blocks, doc_dir, styles, meta.chapter_pages)
-    rights_story, _ = _story(rights_blocks, brand.rights_path.parent, styles, True)
+    body_story, images = _story(blocks, doc_dir, styles, meta.chapter_pages, body_analysis, refs)
+    rights_story, _ = _story(rights_blocks, brand.rights_path.parent, styles, True, rights_analysis, refs)
     has_contents = any(isinstance(b, Heading) for b in list(blocks) + list(rights_blocks))
 
     story: List = _cover(meta, brand, styles)
@@ -796,11 +1005,35 @@ def _assemble(
         story.append(Paragraph("Contents", styles.toc_title))
         story.append(_toc(styles))
         story.append(ForcedBreak())
+    if body_analysis.figure_entries or body_analysis.table_entries:
+        if body_analysis.figure_entries:
+            story.append(Paragraph("List of Figures", styles.list_heading))
+            story.append(_ListOf("LOFEntry", styles.list_entry))
+        if body_analysis.table_entries:
+            story.append(Paragraph("List of Tables", styles.list_heading))
+            story.append(_ListOf("LOTEntry", styles.list_entry))
+        story.append(ForcedBreak())
     story.extend(body_story)
     if rights_story:
         story.append(ForcedBreak())
         story.extend(rights_story)
     return story, images
+
+
+def contrast_pairs(styles: Styles) -> Tuple[Tuple[str, float], ...]:
+    """Contrast ratios of the text and background combinations the renderer uses."""
+    pairs = [
+        ("body text on white", contrast_ratio(styles.body.textColor, colors.white)),
+        ("muted text on white", contrast_ratio(MUTED, colors.white)),
+        ("link on white", contrast_ratio(colors.HexColor(LINK_COLOR), colors.white)),
+        ("heading on white", contrast_ratio(styles.primary, colors.white)),
+        ("label on white", contrast_ratio(styles.callout_label.textColor, colors.white)),
+        ("text on primary", contrast_ratio(styles.on_primary, styles.primary)),
+    ]
+    for kind, color in callout_colors(styles).items():
+        tint = mix_with_white(color, 0.92)
+        pairs.append((f"{kind.lower()} label", contrast_ratio(ensure_contrast(color, tint), tint)))
+    return tuple((name, round(ratio, 2)) for name, ratio in pairs)
 
 
 def render_document(
@@ -817,6 +1050,12 @@ def render_document(
         check_glyphs(text, "Body")
 
     styles = build_styles(brand)
+    IMAGE_DPI.clear()
+    body_analysis = analyze(blocks, meta.numbered)
+    rights_analysis = analyze(rights_blocks, False, body_analysis.refs)
+    refs = {**body_analysis.refs, **rights_analysis.refs}
+    validate_inline(blocks, refs)
+    validate_inline(rights_blocks, refs)
 
     previous_epoch = os.environ.get("SOURCE_DATE_EPOCH")
     previous_lang = rl_config.documentLang
@@ -828,7 +1067,9 @@ def render_document(
         total: Optional[int] = None
         header_map: Dict[int, str] = {}
         for _attempt in range(MAX_LAYOUT_ATTEMPTS):
-            story, images = _assemble(blocks, rights_blocks, meta, brand, doc_dir, styles)
+            story, images = _assemble(
+                blocks, rights_blocks, meta, brand, doc_dir, styles, body_analysis, rights_analysis, refs
+            )
             buffer = io.BytesIO()
             document = _Document(buffer, meta, brand, styles, total, header_map)
             document.multiBuild(story, maxPasses=6)
@@ -847,7 +1088,9 @@ def render_document(
             os.environ["SOURCE_DATE_EPOCH"] = previous_epoch
 
     body_start = document.body_start_page or (document.page + 1)
+    dpi = min(IMAGE_DPI) if IMAGE_DPI else None
     exempt = {page for page in range(1, body_start)} | set(document.forced_pages) | {document.page}
     return RenderResult(
-        pdf=buffer.getvalue(), pages=document.page, images=tuple(images), exempt_pages=tuple(sorted(exempt))
+        pdf=buffer.getvalue(), pages=document.page, images=tuple(images), exempt_pages=tuple(sorted(exempt)),
+        min_image_dpi=dpi, contrast=contrast_pairs(styles),
     )

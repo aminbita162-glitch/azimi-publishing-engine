@@ -8,3 +8,5 @@
 | T-011 | November 2026 | Document | Session 01 PDF: build, page-by-page visual review, delivery checksum match | build manifest and delivery checksum | PASS |
 | T-012 | November 2026 | Engine | Layout engine, audit A1-A8, syntax coloring, boxes, links, imprint, mandatory rights chapter, reproducibility check | python3 -m unittest discover output | PASS |
 | T-013 | November 2026 | Document | Session 01 v1.1.0: build, audit PASS, delivery checksum match | build manifest and delivery checksum | PASS |
+| T-014 | November 2026 | Engine | Diagrams, numbering, cross-references, captions, new boxes, audit A9-A13 | python3 -m unittest discover output | PASS |
+| T-015 | November 2026 | Document | Session 01 v2.0.0: build, audit 13 of 13 PASS, delivery checksum match | build manifest and delivery checksum | PASS |

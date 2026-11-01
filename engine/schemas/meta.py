@@ -13,7 +13,7 @@ import yaml
 from ..errors import ConfigError
 
 REQUIRED_KEYS = ("title", "author", "audience", "language", "version", "date", "output_name")
-OPTIONAL_KEYS = ("subtitle", "brand", "chapter_pages")
+OPTIONAL_KEYS = ("subtitle", "brand", "chapter_pages", "numbered")
 DEFAULT_BRAND = "default"
 
 _LANGUAGE = re.compile(r"^[a-z]{2,3}(-[A-Z]{2})?$")
@@ -40,6 +40,7 @@ class Meta:
     subtitle: Optional[str] = None
     brand: str = DEFAULT_BRAND
     chapter_pages: bool = False
+    numbered: bool = False
 
     @property
     def epoch(self) -> int:
@@ -105,7 +106,12 @@ def parse_meta(data: Any) -> Meta:
         chapter_pages = data["chapter_pages"]
         if not isinstance(chapter_pages, bool):
             raise ConfigError("meta.yaml: chapter_pages must be true or false")
-    return Meta(subtitle=subtitle, brand=brand, chapter_pages=chapter_pages, **values)
+    numbered = False
+    if "numbered" in data:
+        numbered = data["numbered"]
+        if not isinstance(numbered, bool):
+            raise ConfigError("meta.yaml: numbered must be true or false")
+    return Meta(subtitle=subtitle, brand=brand, chapter_pages=chapter_pages, numbered=numbered, **values)
 
 
 def load_meta(path: Union[str, Path]) -> Meta:

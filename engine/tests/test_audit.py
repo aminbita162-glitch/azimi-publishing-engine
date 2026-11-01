@@ -37,7 +37,7 @@ class AuditTests(unittest.TestCase):
 
     def test_all_check_ids_are_present(self):
         ids = [check.id for check in self.result.audit.checks]
-        self.assertEqual(ids, ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"])
+        self.assertEqual(ids, ["A%d" % n for n in range(1, 14)])
 
     def test_metadata_mismatch_is_detected(self):
         wrong = parse_meta(dict(yaml.safe_load(META), title="A different title"))

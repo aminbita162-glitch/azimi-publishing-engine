@@ -50,9 +50,13 @@ requirements.txt.
 
 ## Status
 
-Release 0.3.0 adds the layout engine that fills pages evenly, the executable
-audit, colored code with line numbers, instructional boxes, linked addresses,
-the imprint page and the mandatory rights chapter.
+Release 0.4.0 adds vector diagrams drawn from text (flow, sequence, layers),
+numbered chapters with automatic cross-references, numbered figure and table
+captions with lists, learning-objective, example and pitfall boxes, an 11 pt
+body text, and the audit checks A9 to A13 (links, numbering, text size, image
+resolution and color contrast). Release 0.3.0 added the layout engine, the
+executable audit, colored code, boxes, linked addresses, the imprint page and
+the mandatory rights chapter.
 
 ## Usage
 

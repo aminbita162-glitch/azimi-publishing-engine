@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 - November 2026
+
+- Vector diagrams drawn from text: flow, sequence and layers
+- Numbered chapters and sections, automatic cross-references, numbered figure and table captions
+- Lists of figures and tables
+- New boxes: learning objectives, worked example, common pitfall
+- Audit A9 to A13: link targets, numbering, text size, image resolution, color contrast
+- Body text 11 pt; label colors adjusted to a contrast ratio of at least 4.5 to 1
+
 ## 0.3.0 - November 2026
 
 - Continuous chapter flow with conditional page breaks; no half-empty pages

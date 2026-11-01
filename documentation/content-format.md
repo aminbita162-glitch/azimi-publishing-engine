@@ -28,6 +28,7 @@ Optional keys:
 - subtitle : at most 300 characters
 - brand : name of a folder under brand/ (default: default)
 - chapter_pages : true to start every level 1 heading on a new page; false (default) lets chapters flow continuously
+- numbered : true to number chapters and sections (1, 1.1, 1.1.1) and to print lists of figures and tables; false (default)
 
 Unknown keys are rejected. The date is the only date used by the engine: it fixes the
 document timestamp, so a build never depends on the clock of the machine.
@@ -41,8 +42,12 @@ Allowed block syntax:
 - Lists: lines starting with a hyphen and a space, or with a number, a dot and a space. A list must be followed by a blank line.
 - Code blocks: fenced with three tildes. The opening fence must carry a language label. Code content is kept verbatim; tabs are expanded to four spaces and long lines are wrapped, with continuation lines indented by two spaces.
 - Tables: pipe tables with a header row, a separator row and at least one data row. Every row has the same number of cells. Colons in the separator row set column alignment.
-- Images: a line IMG: path | alt text | caption. Alt text is mandatory, the caption is optional. The path is relative to the document folder and the file is PNG or JPEG.
-- Boxes: a paragraph that starts with one of the labels NOTE:, WARNING:, TIP:, KEY: or CHECKPOINT:
+- Images: a line IMG: path | alt text | caption | id. Alt text is mandatory; caption and id are optional, and an id needs a caption. The path is relative to the document folder and the file is PNG or JPEG.
+- Diagrams: a block fenced with ~~~diagram, described in text (see Diagrams below). Every diagram needs a caption.
+- Table captions: a line TABLE: id | caption directly before a table gives it a number and a caption above the table.
+- Heading attributes: a heading may end in {#id} to become a cross-reference target and in .nonum (as {#id .nonum}) to stay unnumbered.
+- Cross-references: [[id]] inside text becomes a link that reads Chapter 2, Section 2.1, Figure 3 or Table 4. An unknown id is an error. Headings cannot contain references.
+- Boxes: a paragraph that starts with one of the labels NOTE:, WARNING:, TIP:, KEY:, CHECKPOINT:, OBJECTIVES:, EXAMPLE: or PITFALL:. Inside a box, " || " starts a new paragraph (a new bullet in OBJECTIVES).
 - Page break: a line containing only PAGEBREAK. Consecutive page breaks collapse into one.
 
 Allowed inline formatting inside text: bold between double asterisks, italic between single asterisks, inline code between backticks. An opening marker must be followed by a non-space character and a closing marker must follow a non-space character; otherwise the asterisk is literal.
@@ -62,6 +67,25 @@ Characters that the bundled fonts cannot draw are rejected, so no placeholder bo
 | TIP | TIP | A practical shortcut |
 | KEY | KEY POINT | The idea to remember |
 | CHECKPOINT | CHECKPOINT | A question for the reader to answer before continuing |
+| OBJECTIVES | LEARNING OBJECTIVES | What the reader will be able to do after the chapter |
+| EXAMPLE | WORKED EXAMPLE | One concrete example that illustrates the idea |
+| PITFALL | COMMON PITFALL | A mistake that is easy to make and costly to find |
+
+### Diagrams
+
+A diagram block starts with ~~~diagram and has a type line: flow, sequence or layers. All diagrams need
+caption: text, and may have id: name so that text can refer to them. Drawing is deterministic vector graphics.
+
+flow: node id: Label | kind, edge a -> b: label (edge a ..> b for a dashed edge). Kinds: process, decision, ok,
+deny, store, actor, state. Up to 12 nodes and 24 edges. Ranks are computed automatically; an edge that points
+back is drawn as a return path.
+
+sequence: actor id: Label, msg a -> b: text, reply a --> b: text, step: Phase title. 2 to 5 actors and up to
+16 lines. Messages are numbered automatically; msg a -> a: text draws a self-message.
+
+layers: layer: Name | description | kind with kind plain, ok, deny or key. Up to 8 layers.
+
+A diagram that would be taller than 72 percent of the page body is rejected; split it.
 
 ### Code blocks
 
@@ -119,6 +143,11 @@ The audit runs automatically:
 | A6 | Every page is A4 |
 | A7 | Body pages are filled to at least 72% |
 | A8 | The file size is reasonable |
+| A9 | Every internal link lands on a page |
+| A10 | Figure and table numbers have no gaps |
+| A11 | The smallest text is at least 7.5 pt |
+| A12 | Raster images have at least 140 dpi |
+| A13 | Every text and background pair has a WCAG contrast of at least 4.5:1 |
 
 The command exits with status 0 when the audit passes, 2 for an input error and 3 when the audit fails.
 The manifest records the engine and library versions, the checksum of every input, font and brand file, the checksum of the PDF and the audit result.

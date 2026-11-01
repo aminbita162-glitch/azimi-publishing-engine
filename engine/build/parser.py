@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from ..errors import ContentError
+from .diagram_spec import DiagramSpec, parse_diagram
 
 MAX_HEADING_DEPTH = 3
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
@@ -21,7 +22,9 @@ _NUMBERED = re.compile(r"^\d+\. +(\S.*)$")
 _FENCE_LANG = re.compile(r"^[A-Za-z0-9_+.#-]+$")
 _TABLE_SEPARATOR_CELL = re.compile(r"^:?-+:?$")
 _HTML = re.compile(r"</?[A-Za-z!]")
-CALLOUT_KINDS = ("NOTE", "WARNING", "TIP", "KEY", "CHECKPOINT")
+CALLOUT_KINDS = ("NOTE", "WARNING", "TIP", "KEY", "CHECKPOINT", "OBJECTIVES", "EXAMPLE", "PITFALL")
+_REF_ID = re.compile(r"^[a-z][a-z0-9-]{0,39}$")
+_ATTRS = re.compile(r"\s*\{([^{}]*)\}\s*$")
 _CALLOUT = re.compile(r"^(" + "|".join(CALLOUT_KINDS) + r"):\s*(\S.*)$", re.DOTALL)
 
 
@@ -36,6 +39,8 @@ class Block:
 class Heading(Block):
     level: int
     text: str
+    ref_id: Optional[str] = None
+    numbered: bool = True
 
 
 @dataclass(frozen=True)
@@ -64,6 +69,8 @@ class Table(Block):
     header: Tuple[str, ...]
     rows: Tuple[Tuple[str, ...], ...]
     align: Tuple[str, ...]
+    ref_id: Optional[str] = None
+    caption: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -71,12 +78,22 @@ class Image(Block):
     path: str
     alt: str
     caption: Optional[str]
+    ref_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
 class Callout(Block):
     kind: str
     text: str
+
+
+@dataclass(frozen=True)
+class Diagram(Block):
+    """A diagram described in text; spec is a validated DiagramSpec."""
+
+    spec: "DiagramSpec"
+    ref_id: Optional[str] = None
+    caption: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -93,12 +110,36 @@ def _check_text(text: str, line: int) -> None:
         raise ContentError("control characters are not allowed", line)
 
 
+def _check_ref_id(value: str, number: int) -> None:
+    if not _REF_ID.match(value):
+        raise ContentError("an id must be lowercase letters, digits and hyphens, starting with a letter", number)
+
+
+def _split_heading_attributes(text: str, number: int):
+    """Return (text, ref_id, numbered) for a heading that may end in {#id .nonum}."""
+    match = _ATTRS.search(text)
+    if not match:
+        return text, None, True
+    ref_id = None
+    numbered = True
+    for token in match.group(1).split():
+        if token.startswith("#"):
+            ref_id = token[1:]
+            _check_ref_id(ref_id, number)
+        elif token == ".nonum":
+            numbered = False
+        else:
+            raise ContentError(f"unknown heading attribute: {token}", number)
+    return text[: match.start()].rstrip(), ref_id, numbered
+
+
 def _is_block_start(line: str) -> bool:
     stripped = line.strip()
     return bool(
         line.startswith("~~~")
         or stripped == "PAGEBREAK"
         or stripped.startswith("IMG:")
+        or stripped.startswith("TABLE:")
         or stripped.startswith("|")
         or _HEADING.match(line)
         or _BULLET.match(line)
@@ -108,10 +149,15 @@ def _is_block_start(line: str) -> bool:
 
 def _parse_image(line_text: str, number: int) -> Image:
     parts = [part.strip() for part in line_text.strip()[len("IMG:"):].split("|")]
-    if len(parts) not in (2, 3):
-        raise ContentError("image syntax is IMG: path | alt text | caption", number)
+    if len(parts) not in (2, 3, 4):
+        raise ContentError("image syntax is IMG: path | alt text | caption | id", number)
     path, alt = parts[0], parts[1]
-    caption = parts[2] if len(parts) == 3 and parts[2] else None
+    caption = parts[2] if len(parts) >= 3 and parts[2] else None
+    ref_id = parts[3] if len(parts) == 4 and parts[3] else None
+    if ref_id is not None:
+        _check_ref_id(ref_id, number)
+        if caption is None:
+            raise ContentError("an image with an id needs a caption", number)
     if not path:
         raise ContentError("image path is empty", number)
     if not alt:
@@ -124,7 +170,7 @@ def _parse_image(line_text: str, number: int) -> Image:
         raise ContentError("image must be PNG or JPEG", number)
     for text in (alt, caption or ""):
         _check_text(text, number)
-    return Image(line=number, path=path, alt=alt, caption=caption)
+    return Image(line=number, path=path, alt=alt, caption=caption, ref_id=ref_id)
 
 
 def _split_row(line_text: str) -> Tuple[str, ...]:
@@ -163,6 +209,7 @@ def parse(text: str) -> List[Block]:
     index = 0
     count = len(lines)
     last_heading = 0
+    pending_table = None
 
     while index < count:
         line = lines[index]
@@ -189,7 +236,11 @@ def parse(text: str) -> List[Block]:
                 index += 1
             if not closed:
                 raise ContentError("code block is not closed", number)
-            blocks.append(Code(line=number, language=language, lines=tuple(body)))
+            if language == "diagram":
+                spec = parse_diagram(body, number + 1)
+                blocks.append(Diagram(line=number, spec=spec, ref_id=spec.ref_id, caption=spec.caption))
+            else:
+                blocks.append(Code(line=number, language=language, lines=tuple(body)))
             index += 1
             continue
 
@@ -205,6 +256,20 @@ def parse(text: str) -> List[Block]:
             index += 1
             continue
 
+        if stripped.startswith("TABLE:"):
+            parts = [part.strip() for part in stripped[len("TABLE:"):].split("|")]
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                raise ContentError("table caption syntax is TABLE: id | caption", number)
+            _check_ref_id(parts[0], number)
+            _check_text(parts[1], number)
+            pending_table = (parts[0], parts[1], number)
+            index += 1
+            while index < count and not lines[index].strip():
+                index += 1
+            if index >= count or not lines[index].strip().startswith("|"):
+                raise ContentError("a TABLE: line must be followed by a table", number)
+            continue
+
         heading = _HEADING.match(line)
         if heading:
             level = len(heading.group(1))
@@ -212,8 +277,13 @@ def parse(text: str) -> List[Block]:
                 raise ContentError(f"heading depth exceeds {MAX_HEADING_DEPTH}", number)
             if level > last_heading + 1:
                 raise ContentError("heading level skips a level", number)
-            _check_text(heading.group(2), number)
-            blocks.append(Heading(line=number, level=level, text=heading.group(2)))
+            heading_text, ref_id, numbered_heading = _split_heading_attributes(heading.group(2), number)
+            _check_text(heading_text, number)
+            if not heading_text:
+                raise ContentError("heading text is empty", number)
+            blocks.append(
+                Heading(line=number, level=level, text=heading_text, ref_id=ref_id, numbered=numbered_heading)
+            )
             last_heading = level
             index += 1
             continue
@@ -223,7 +293,14 @@ def parse(text: str) -> List[Block]:
             while index < count and lines[index].strip().startswith("|"):
                 rows.append((index + 1, lines[index]))
                 index += 1
-            blocks.append(_parse_table(rows))
+            table = _parse_table(rows)
+            if pending_table is not None:
+                table = Table(
+                    line=table.line, header=table.header, rows=table.rows, align=table.align,
+                    ref_id=pending_table[0], caption=pending_table[1],
+                )
+                pending_table = None
+            blocks.append(table)
             continue
 
         bullet = _BULLET.match(line)

@@ -7,7 +7,7 @@ renderer. All other characters are escaped, so content can never inject markup.
 from __future__ import annotations
 
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from ..errors import ContentError
 
@@ -48,8 +48,27 @@ def _escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def to_markup(text: str, line: Optional[int] = None) -> str:
-    """Return paragraph markup for text, or raise ContentError for unbalanced markers."""
+_REFERENCE = re.compile(r"\[\[([a-z][a-z0-9-]*)\]\]")
+
+
+def reference_ids(text: str) -> List[str]:
+    """Return the ids used as [[id]] cross-references in text (inline code excluded)."""
+    masked = []
+    inside = False
+    for char in text:
+        if char == "`":
+            inside = not inside
+            masked.append(" ")
+        else:
+            masked.append(" " if inside else char)
+    return _REFERENCE.findall("".join(masked))
+
+
+def to_markup(text: str, line: Optional[int] = None, refs: Optional[Dict[str, str]] = None) -> str:
+    """Return paragraph markup for text, or raise ContentError for unbalanced markers.
+
+    When refs maps ids to labels, [[id]] becomes a link to that anchor; an unknown id is an error.
+    """
     out: List[str] = []
     stack: List[str] = []
     index = 0
@@ -66,6 +85,16 @@ def to_markup(text: str, line: Optional[int] = None) -> str:
             out.append(f'<a href="{href}" color="{LINK_COLOR}">{label}</a>')
             index = end
             continue
+
+        if char == "[" and refs is not None and text.startswith("[[", index):
+            match = _REFERENCE.match(text, index)
+            if match:
+                target = match.group(1)
+                if target not in refs:
+                    raise ContentError(f"unknown cross-reference [[{target}]]", line)
+                out.append(f'<a href="#{target}" color="{LINK_COLOR}">{_escape(refs[target])}</a>')
+                index = match.end()
+                continue
 
         if char == "`":
             end = text.find("`", index + 1)
