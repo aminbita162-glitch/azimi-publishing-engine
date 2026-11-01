@@ -24,10 +24,10 @@ def main():
         DESKTOP_OUT.mkdir(parents=True, exist_ok=True)
         for f in build.glob("*.pdf"):
             shutil.copy2(f, DESKTOP_OUT / f.name)
-            print(f"Copied: {DESKTOP_OUT / f.name}")
+            print(f"Ready: {DESKTOP_OUT / f.name}")
         for f in build.glob("*.manifest.json"):
             shutil.copy2(f, DESKTOP_OUT / f.name)
-        print("Deep upgrade PDF ready.")
+        print("International-grade PDF produced.")
     sys.exit(code)
 
 if __name__ == "__main__":
