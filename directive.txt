@@ -1,5 +1,5 @@
 # AZIMI PUBLISHING ENGINE
-## ROOT MASTER ENGINEERING DIRECTIVE — V1.1
+## ROOT MASTER ENGINEERING DIRECTIVE — V1.2
 Status: APPROVED ARCHITECTURE — IMPLEMENTATION CONTROLLED
 Organization: Azimi Innovation Lab
 Owner / Author: Amin Azimi
@@ -12,9 +12,10 @@ This directive governs the entire Azimi Publishing Engine workspace. The owner r
 01. MISSION
 Build a reusable professional publishing infrastructure for internationally competitive, commercially publishable educational PDFs. Initial product: coherent 16-session English Agentic AI Masterclass. Highest demonstrable educational, engineering, visual, accessibility, security and publication quality. A 10/10 target is an objective, not an unsupported claim.
 
-02. TWO DISTINCT WORKFLOWS
+02. THREE WORKFLOWS
 A — Terminal workflow: approve objective and session brief; prepare compact command sequence; owner runs one command at a time in Mac VS Code; inspect actual output before next command; verify final PDF and evidence. About ten major steps is a planning preference, never a QA limit.
-B — VS Code development agent: read directives and run the same approved content, tokens, build entry point, pinned dependencies, audit suite and acceptance thresholds. Both workflows must be equivalent under identical inputs.
+B — VS Code development agent: read directives and run the same approved content, tokens, build entry point, pinned dependencies, audit suite and acceptance thresholds. C — Three-agent workflow: Amilus Publishing Manager, Ali Publishing Composer and Lili Publishing Auditor, defined in agents/ and run in an external agent application on the owner's computer. They use only the engine commands listed in AGENTS.md, every command needs the owner's approval, they never commit, push, publish or deliver a PDF, and the owner decides every release.
+All workflows must be equivalent under identical inputs and obey every gate of this directive.
 
 03. DIRECTIVE HIERARCHY
 Root directive: global engineering and publication rules. Course directive: curriculum, objectives, progression and terminology. Session directive: learning outcomes, approved content, examples, exercises, sources, assets and acceptance. Priority: explicit owner approval and safety boundaries; root directive; course directive; session directive; approved production brief; defaults. Lower directives may specialize but not silently weaken higher requirements. Report conflicts before execution.
@@ -22,18 +23,14 @@ Root directive: global engineering and publication rules. Course directive: curr
 04. WORKSPACE STRUCTURE
 azimi-publishing-engine/
   directive.txt
-  engine/{build,audit,render,accessibility,schemas,tests}/
-  standards/
-  design-system/
-  brand/
-  references/
-  courses/agentic-ai-masterclass/
-    directive.txt
-    curriculum/
-    shared-assets/
-    session-01/{directive.txt,content/,sources/,assets/,design/,build/,out/,evidence/}
-    session-02/ ... session-16/ (same structure)
+  README.md, HANDBOOK.md, AGENTS.md, SECURITY.md, THIRD_PARTY_NOTICES.md, CHANGELOG.md, TEST_LOG.md, LICENSE, requirements.txt
+  agents/{amilus.txt,ali.txt,lili.txt,SHA256SUMS}
+  engine/{build,audit,render,schemas,tests}/
+  design-system/fonts/
+  brand/NAME/{logo.png,brand.yaml,rights.md,forbidden.txt}
+  courses/agentic-ai-masterclass/session-NN/{meta.yaml,content.md,assets/,code/,build/}
   documentation/
+Planned and not yet created: engine/accessibility/, standards/, references/, curriculum/, shared-assets/, and per-session directive.txt, sources/, design/, out/ and evidence/. Today the build folder of a session holds the PDF, its manifest and the audit evidence.
 Each session is independently buildable and auditable. Centralize reusable engineering code. Approval of this text does not authorize creation of folders or files beyond separately approved actions.
 
 05. SOURCE MATERIAL POLICY
@@ -121,7 +118,7 @@ $HOME/Desktop/Azimi-Publishing-Output
 Resolve $HOME dynamically for the current authorized user. Do not hard-code an absolute user-specific path. Confirm that the resolved home directory belongs to the intended owner account before release.
 
 26.2 SEPARATION OF BUILD AND RELEASE ARTIFACTS
-All source files, intermediate PDFs, temporary assets, logs, test reports, and quality-assurance evidence must remain within the appropriate project workspace directories. Only final, approved, release-ready PDF artifacts may be delivered to the designated Desktop output directory.
+All source files, intermediate PDFs, temporary assets, logs, test reports, and quality-assurance evidence must remain within the appropriate project workspace directories. Only final, approved, release-ready PDF artifacts may be delivered to the designated Desktop output directory. Trial and draft PDFs go only to its Drafts subfolder.
 
 26.3 MANDATORY RELEASE GATE
 Before delivering a PDF, verify that the required content and layout checks have passed; the PDF opens successfully and passes applicable structural checks; the release has required owner authorization; and the final filename and destination are valid. A failed or incomplete build must never be presented as a final release. Copying a file into the delivery directory is a controlled delivery action, not authorization for public distribution.
@@ -135,15 +132,15 @@ Never silently overwrite an existing released PDF. Require explicit owner approv
 After an authorized release, verify that the destination PDF exists, is non-empty, and matches the approved build artifact using SHA-256. Record the release filename, timestamp, checksum, and verification result in the project evidence.
 
 26.6 EXECUTION MODES
-Both the manual terminal workflow and the authorized developer-agent workflow must follow the same destination rules, release gates, and verification requirements.
+All workflows must follow the same destination rules, release gates, and verification requirements.
 
 26.7 FAILURE HANDLING
 If the destination is unavailable, unwritable, or verification fails, stop delivery, preserve the original build artifact, and report the failure. Do not silently redirect the PDF elsewhere.
 
 26.8 AUTHORITY BOUNDARY
-This directive defines required behavior. It does not itself implement file-copying or PDF-generation functionality. Implementation must be separately approved, tested, and integrated into the publishing engine.
+The command python3 -m engine deliver implements 26.1 to 26.5 for drafts and releases: it requires a passing verify, never overwrites different content, checks the copy by SHA-256 and, for a release, requires the owner's file RELEASE_APPROVAL.txt naming the checksum of the exact PDF. The owner approved it in November 2026. Agents never run it.
 
 27. FINAL OPERATING RULE
 NO EVIDENCE, NO PASS. NO PASS, NO RELEASE. NO OWNER AUTHORIZATION, NO PUBLICATION. Keep the engine reusable, reproducible, auditable, secure, educationally rigorous and owner-controlled.
 
-END OF ROOT DIRECTIVE — V1.1
+END OF ROOT DIRECTIVE — V1.2

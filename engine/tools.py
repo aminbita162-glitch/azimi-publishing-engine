@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import calendar
+import hashlib
+import json
+import os
+import re
 import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Union
+from typing import List, Tuple, Union
 
 from .errors import ConfigError
 from .paths import resolve_inside
@@ -102,3 +106,105 @@ def describe_fonts(fonts_dir: Path) -> List[str]:
     mono = registry["mono"]
     lines.append(f"code font: {mono['regular']}, {mono['bold']}")
     return lines
+
+
+AGENT_NAMES = ("amilus", "ali", "lili")
+AGENTS_DIR = "agents"
+AGENT_SUMS = "SHA256SUMS"
+APPROVAL_FILE = "RELEASE_APPROVAL.txt"
+OUTPUT_ENV = "AZIMI_OUTPUT_DIR"
+OUTPUT_FOLDER = "Azimi-Publishing-Output"
+DRAFTS_FOLDER = "Drafts"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_agents(project_root: Union[str, Path]) -> List[Tuple[str, bool, str, str]]:
+    """Compare the agent definition files with agents/SHA256SUMS.
+
+    Returns (name, ok, version line, sha256) for every agent. A missing file or a missing
+    checksum line counts as not ok.
+    """
+    root = Path(project_root).resolve(strict=True)
+    folder = root / AGENTS_DIR
+    sums_path = folder / AGENT_SUMS
+    if not sums_path.is_file():
+        raise ConfigError("agents/SHA256SUMS is missing")
+    expected = {}
+    for line in sums_path.read_text(encoding="utf-8").splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            expected[parts[1].lstrip("*")] = parts[0].lower()
+    results = []
+    for name in AGENT_NAMES:
+        file_name = f"{name}.txt"
+        path = folder / file_name
+        if not path.is_file():
+            results.append((name, False, "missing", ""))
+            continue
+        actual = _sha256_file(path)
+        lines = path.read_text(encoding="utf-8").splitlines()
+        version = lines[1].strip() if len(lines) > 1 else "unknown"
+        results.append((name, expected.get(file_name) == actual, version, actual))
+    return results
+
+
+def output_base() -> Path:
+    """The delivery folder: AZIMI_OUTPUT_DIR if set, otherwise Desktop/Azimi-Publishing-Output of the current user."""
+    override = os.environ.get(OUTPUT_ENV)
+    if override:
+        return Path(override)
+    return Path.home() / "Desktop" / OUTPUT_FOLDER
+
+
+def deliver_pdf(project_root: Union[str, Path], document_dir: str, mode: str) -> Path:
+    """Copy a verified PDF to the draft or release folder and check the copy.
+
+    draft   goes to the Drafts subfolder and needs a passing verify.
+    release goes to the output folder, needs a passing verify and a RELEASE_APPROVAL.txt in the
+            document folder that names the SHA-256 of this exact PDF.
+    Nothing is ever overwritten with different content.
+    """
+    from .build.builder import BUILD_DIR, verify_document
+    from .schemas.meta import load_meta
+
+    if mode not in ("draft", "release"):
+        raise ConfigError("delivery mode must be draft or release")
+    root = Path(project_root).resolve(strict=True)
+    folder = resolve_inside(root, document_dir)
+    outcome = verify_document(root, document_dir)
+    if not outcome.ok:
+        raise ConfigError("delivery stopped: " + "; ".join(outcome.problems))
+    meta = load_meta(folder / "meta.yaml")
+    pdf = folder / BUILD_DIR / f"{meta.output_name}_v{meta.version}.pdf"
+    checksum = _sha256_file(pdf)
+    if mode == "release":
+        approval = folder / APPROVAL_FILE
+        if not approval.is_file():
+            raise ConfigError(f"release stopped: {APPROVAL_FILE} is missing in the document folder")
+        approved = re.findall(r"(?mi)^APPROVED\s+([0-9a-f]{64})\b", approval.read_text(encoding="utf-8"))
+        if checksum not in approved:
+            raise ConfigError("release stopped: the approval file does not name the checksum of this PDF")
+    base = output_base()
+    target_dir = base / DRAFTS_FOLDER if mode == "draft" else base
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / pdf.name
+    if target.exists() and _sha256_file(target) != checksum:
+        raise ConfigError(f"delivery stopped: {target.name} already exists with different content and was not overwritten")
+    if not target.exists():
+        shutil.copy2(pdf, target)
+    if _sha256_file(target) != checksum:
+        raise ConfigError("delivery failed: the copy does not match the built PDF")
+    now = time.gmtime()
+    record = {
+        "file": pdf.name, "sha256": checksum, "mode": mode, "destination": str(target_dir),
+        "month": f"{calendar.month_name[now.tm_mon]} {now.tm_year}", "verified": True,
+    }
+    (folder / BUILD_DIR / f"delivery-{mode}.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return target

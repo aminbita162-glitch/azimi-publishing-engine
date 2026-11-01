@@ -13,7 +13,7 @@ Azimi Publishing Engine is a command-line program written in Python. It reads on
 - It is not a word processor, a design tool or a web service.
 - It is not a general converter: it accepts only the format in documentation/content-format.md and rejects everything else with an error that names the line.
 - It does not write content. A person writes content.md.
-- It is not finished. Agents inside the engine, the delivery command, the container package and the desktop product do not exist yet (section 14). The agents that exist run outside the engine (see AGENTS.md).
+- It is not finished. Agents inside the engine, the container package and the desktop product do not exist yet (section 14). The agents that exist run outside the engine (see AGENTS.md).
 - It does not produce tagged (PDF/UA) or archival (PDF/A) files (section 13).
 
 ## 3. What it is for, and what it is not for
@@ -32,7 +32,9 @@ It does:
 - build the cover, imprint, contents, lists of figures and tables, body, and the rights chapter;
 - render twice and fail if the two results differ;
 - run 16 audit checks and refuse to release a PDF that fails one;
-- verify a stored PDF later against its manifest.
+- verify a stored PDF later against its manifest;
+- deliver a verified PDF to a draft folder, or to the release folder only with the owner's written approval of that exact file;
+- check the agent role files against their checksums.
 
 It does not:
 - guess or repair content;
@@ -66,7 +68,7 @@ The document date is the only date the engine uses. It fixes the PDF timestamp, 
 | TEST_LOG.md | Evidence for every verification performed |
 | directive.txt | The fixed engineering rules of the project |
 | AGENTS.md | How the three working agents are defined, run and limited |
-| agents/ | The complete role definition of each agent: amilus.txt (manager), ali.txt (composer), lili.txt (auditor) |
+| agents/ | The complete role definition of each agent (amilus.txt, ali.txt, lili.txt) and SHA256SUMS for them |
 | requirements.txt | Pinned Python libraries |
 | documentation/content-format.md | The only accepted input format |
 | engine/ | The program: paths, schemas, parser, lint, brand loader, renderer, diagrams, syntax coloring, audit, builder, tools, command line |
@@ -97,6 +99,8 @@ The tests must pass before you build anything.
 7. Read the audit lines. All 16 must be PASS. The PDF is in courses/my-document/build.
 8. Look at pages: python3 -m engine preview courses/my-document --pages 1,2,3
 9. Later, prove the file is unchanged: python3 -m engine verify courses/my-document
+10. Deliver a draft copy: python3 -m engine deliver draft courses/my-document (goes to the Drafts folder of the output folder, after a passing verify).
+11. Release: the owner writes a file RELEASE_APPROVAL.txt in the document folder with one line, APPROVED followed by the SHA-256 of the PDF, then runs python3 -m engine deliver release courses/my-document. A release is never overwritten with different content.
 
 Exit status: 0 success, 2 input error, 3 audit failure.
 
@@ -148,7 +152,7 @@ Not claimed: PDF/UA (tagged, accessible PDF) and PDF/A (archival). ReportLab can
 
 Built and tested: everything in sections 4 and 5, the commands in section 8, the audit in section 10.
 
-Not built: agents that run inside the engine (the three agents exist as role definitions in agents/ and run in an external app on the owner's computer, see AGENTS.md); a gate command and JSON output; a delivery command that copies the PDF to an output folder with a checksum check; quality filters Q01 to Q30 as executable checks beyond the audit; PDF/UA tagging; PDF/A output; further bundled font families; hyphenation; right-to-left and non-Latin scripts; container packaging; a desktop product for users without a development agent; continuous integration. PyMuPDF, which can be used for previews, has a license (AGPL or commercial) that must be reviewed before the engine is distributed commercially.
+Not built: agents that run inside the engine (the three agents exist as role definitions in agents/ and run in an external app on the owner's computer, see AGENTS.md); a gate command and JSON output; quality filters Q01 to Q30 as executable checks beyond the audit; PDF/UA tagging; PDF/A output; further bundled font families; hyphenation; right-to-left and non-Latin scripts; container packaging; a desktop product for users without a development agent; continuous integration. PyMuPDF, which can be used for previews, has a license (AGPL or commercial) that must be reviewed before the engine is distributed commercially.
 
 Planned content: 16 sessions of the Agentic AI Masterclass, built one by one, named as a numbered series of Azimi Innovation Lab documents. The sessions currently in the courses folder are trials until they are approved.
 

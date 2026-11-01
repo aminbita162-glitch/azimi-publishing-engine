@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from . import __version__
 from .build.builder import build_document, check_document, verify_document
-from .tools import describe_fonts, render_previews, scaffold_document
+from .tools import deliver_pdf, describe_fonts, render_previews, scaffold_document, verify_agents
 from .errors import EngineError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +48,10 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
     preview.add_argument("path")
     preview.add_argument("--pages", default="1,2,3", help="comma-separated page numbers (default 1,2,3)")
     commands.add_parser("fonts", help="list the font families that can be used in meta.yaml")
+    commands.add_parser("agents", help="check the agent role files against agents/SHA256SUMS")
+    deliver = commands.add_parser("deliver", help="copy a verified PDF to the draft or release folder (owner only)")
+    deliver.add_argument("mode", choices=["draft", "release"])
+    deliver.add_argument("path")
     args = parser.parse_args(argv)
 
     project_root = Path(root) if root is not None else PROJECT_ROOT
@@ -56,7 +60,16 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
             for line in describe_fonts(project_root / "design-system" / "fonts"):
                 print(line)
             return 0
+        if args.command == "agents":
+            results = verify_agents(project_root)
+            for name, ok, version, digest in results:
+                print(f"{'OK      ' if ok else 'MISMATCH'} {name:7s} {version}  {digest[:16]}")
+            return 0 if all(ok for _, ok, _, _ in results) else 2
         relative = _relative_to_root(project_root, args.path)
+        if args.command == "deliver":
+            target = deliver_pdf(project_root, relative, args.mode)
+            print(f"Delivered : {target}")
+            return 0
         if args.command == "check":
             problems, pages = check_document(project_root, relative)
             for issue in problems:

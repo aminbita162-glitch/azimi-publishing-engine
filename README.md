@@ -23,7 +23,7 @@ Azimi Publishing Engine turns a structured content folder into a branded PDF wit
 - Brand folder (logo, colors, rights) and selectable font families with checksum verification
 - Reproducibility check on every build (two renders compared) and a manifest with inputs, tool versions and checksums
 - Audit A1 to A16 on every build; a failed audit stops the release
-- Commands: build, check, verify, new, preview, fonts
+- Commands: build, check, verify, new, preview, fonts, agents, deliver
 
 ## What this project is not
 
@@ -59,6 +59,7 @@ Python 3 with ReportLab for rendering, pypdf for audit and metadata, Pillow for 
     python3 -m engine build courses/NAME
     python3 -m engine verify courses/NAME
     python3 -m engine preview courses/NAME --pages 1,2,3
+    python3 -m engine deliver draft courses/NAME
 
 Exit status: 0 success, 2 input error, 3 audit failure.
 
@@ -66,15 +67,14 @@ Exit status: 0 success, 2 input error, 3 audit failure.
 
 Not built yet, in the order currently planned:
 
-1. Delivery command that copies the PDF to an output folder and verifies the checksum
-2. Quality filters Q01 to Q30 as executable checks, extending the audit
-3. Agents inside the product: the three agents are defined (agents/) and run in an external app on the owner's computer since November 2026. Still to build: a gate command, JSON output and built-in agents for users who do not have that app
-4. PDF/UA tagging and PDF/A output, which need a different or additional PDF writer than ReportLab
-5. More bundled font families; hyphenation
-6. Continuous integration
-7. Container packaging for local use
-8. Desktop distribution for users without a development agent; the license of the optional preview tool PyMuPDF must be reviewed first
-9. Sessions 01 to 16 of the Agentic AI Masterclass, built one by one; the sessions in courses/ today are trials
+1. Quality filters Q01 to Q30 as executable checks, extending the audit
+2. Agents inside the product: the three agents are defined (agents/) and run in an external app on the owner's computer since November 2026. Still to build: a gate command, JSON output and built-in agents for users who do not have that app
+3. PDF/UA tagging and PDF/A output, which need a different or additional PDF writer than ReportLab
+4. More bundled font families; hyphenation
+5. Continuous integration
+6. Container packaging for local use
+7. Desktop distribution for users without a development agent; the license of the optional preview tool PyMuPDF must be reviewed first
+8. Sessions 01 to 16 of the Agentic AI Masterclass, built one by one; the sessions in courses/ today are trials
 
 ## Author
 

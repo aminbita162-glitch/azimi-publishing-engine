@@ -22,8 +22,8 @@ As proven in November 2026, the application lets an agent read the project folde
 ## Limits that apply to all agents
 
 - The only interpreter is .venv/bin/python3 in the project root.
-- Allowed commands: python3 -m engine (check, build, verify, preview, fonts) and read-only ls, cat and head inside the project. Ali may write only content.md and the assets of the document named in the handoff. Lili is read-only.
-- Never git, rm, mv, cp, curl, pip, sudo. Committing, tagging, pushing and uploading are done by the owner.
+- Allowed commands: python3 -m engine (check, build, verify, preview, fonts, agents) and read-only ls, cat and head inside the project. Ali may write only content.md and the assets of the document named in the handoff. Lili is read-only.
+- Never git, rm, mv, cp, curl, pip, sudo. Committing, tagging, pushing, uploading and delivering a PDF (python3 -m engine deliver) are done by the owner.
 - Never use the always-allow option of the application: it applies to every agent in the application.
 - After every run the owner checks what changed with git status.
 
@@ -34,6 +34,19 @@ As proven in November 2026, the application lets an agent read the project folde
 3. The agent must answer READY followed by its numbered summary. If it answers anything else, discard the agent and create it again.
 4. Never paste a changed rule into a chat. Change the file in this folder, raise its version, add a line to CHANGELOG.md, and paste the new file.
 
+## Connection between the application and the project
+
+The files in agents/ are the live definitions. At the start of every ticket each agent reads its own file with cat and follows it; if its chat copy differs, the file wins. Amilus also runs python3 -m engine agents, which compares the three files with agents/SHA256SUMS and reports OK or MISMATCH. When a role file changes, regenerate agents/SHA256SUMS in the same change.
+
+## From content to PDF
+
+1. The owner gives Amilus the content or the brief.
+2. Amilus opens a ticket, runs python3 -m engine agents and sends a handoff to Ali.
+3. Ali writes content.md and the assets of the document folder and runs python3 -m engine check on it.
+4. Amilus runs check, build and verify, and sends the PDF, manifest and content to Lili.
+5. Lili reports findings; Ali fixes them; Amilus rebuilds; at most three rounds.
+6. The owner reviews. A draft goes to the Drafts folder with python3 -m engine deliver draft PATH. A release needs a file RELEASE_APPROVAL.txt in the document folder with the line APPROVED followed by the SHA-256 of that exact PDF, then python3 -m engine deliver release PATH. Both are run by the owner.
+
 ## Message protocol
 
 Every message between agents carries a ticket id, sender, receiver, sequence number and type. The formats of the handoffs and reports are defined in the three files. Amilus rejects any delivery or report that does not follow its format.
@@ -41,5 +54,5 @@ Every message between agents carries a ticket id, sender, receiver, sequence num
 ## Not built yet
 
 - Agents that run inside the engine or the future desktop product.
-- A gate command, JSON output and a delivery command in the engine; until then Amilus follows the steps in agents/amilus.txt by hand.
+- A gate command and JSON output in the engine; until then Amilus follows the steps in agents/amilus.txt by hand.
 - Any claim that the agents are tested beyond the limited trials recorded in TEST_LOG.md.

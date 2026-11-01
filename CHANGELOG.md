@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2 - November 2026
+
+- Command agents: checks the three agent role files against agents/SHA256SUMS
+- Command deliver: draft copies go to the Drafts folder, releases need the owner approval file for the exact PDF; nothing is overwritten
+- Agents read their own file from the project at the start of every ticket; Amilus reports the checksum result
+- directive.txt updated to V1.2: third workflow, real workspace structure, drafts separated from releases
+
 ## 0.5.1 - November 2026
 
 - The three agent role definitions are installed in agents/ (manager, composer, auditor)
