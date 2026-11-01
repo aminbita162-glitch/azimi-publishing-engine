@@ -11,6 +11,7 @@ VALID = {
     "audience": "Senior engineers with seven or more years of experience",
     "language": "en",
     "version": "1.0.0",
+    "date": "November 2026",
     "output_name": "session-01",
 }
 
@@ -69,6 +70,16 @@ class ParseMetaTests(unittest.TestCase):
                 with self.assertRaisesRegex(ConfigError, "version"):
                     parse_meta(dict(VALID, version=bad))
 
+    def test_bad_date(self):
+        for bad in ("2026", "Nov 2026", "November 12, 2026", "november 2026", "Smarch 2026"):
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(ConfigError, "date"):
+                    parse_meta(dict(VALID, date=bad))
+
+    def test_epoch_is_start_of_month_utc(self):
+        self.assertEqual(parse_meta(dict(VALID)).epoch, 1793491200)
+        self.assertEqual(parse_meta(dict(VALID, date="January 2000")).epoch, 946684800)
+
     def test_bad_language(self):
         for bad in ("english", "EN", "e", "en_US"):
             with self.subTest(bad=bad):
@@ -94,7 +105,7 @@ class LoadMetaTests(unittest.TestCase):
             path = Path(tmp) / "meta.yaml"
             path.write_text(
                 "title: Agentic Systems\nauthor: Amin Azimi\naudience: Senior engineers\n"
-                "language: en\nversion: 1.0.0\noutput_name: session-01\n",
+                "language: en\nversion: 1.0.0\ndate: November 2026\noutput_name: session-01\n",
                 encoding="utf-8",
             )
             meta = load_meta(path)
@@ -104,7 +115,7 @@ class LoadMetaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "meta.yaml"
             path.write_text(
-                "title: T\nauthor: A\naudience: B\nlanguage: en\nversion: 1.0\noutput_name: x\n",
+                "title: T\nauthor: A\naudience: B\nlanguage: en\nversion: 1.0\ndate: November 2026\noutput_name: x\n",
                 encoding="utf-8",
             )
             with self.assertRaises(ConfigError):

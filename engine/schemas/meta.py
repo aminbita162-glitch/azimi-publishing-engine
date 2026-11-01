@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,12 +12,14 @@ import yaml
 
 from ..errors import ConfigError
 
-REQUIRED_KEYS = ("title", "author", "audience", "language", "version", "output_name")
+REQUIRED_KEYS = ("title", "author", "audience", "language", "version", "date", "output_name")
 OPTIONAL_KEYS = ("subtitle", "brand")
 DEFAULT_BRAND = "default"
 
 _LANGUAGE = re.compile(r"^[a-z]{2,3}(-[A-Z]{2})?$")
 _VERSION = re.compile(r"^\d+\.\d+\.\d+$")
+_MONTHS = tuple(calendar.month_name)[1:]
+_DATE = re.compile(r"^(" + "|".join(_MONTHS) + r") (\d{4})$")
 _BRAND = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _OUTPUT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
@@ -32,9 +35,21 @@ class Meta:
     audience: str
     language: str
     version: str
+    date: str
     output_name: str
     subtitle: Optional[str] = None
     brand: str = DEFAULT_BRAND
+
+    @property
+    def epoch(self) -> int:
+        """Seconds since 1970-01-01 UTC at the start of the document month.
+
+        Used as the fixed document timestamp so that builds never depend on the clock.
+        """
+        match = _DATE.match(self.date)
+        assert match is not None  # guaranteed by validation
+        month = _MONTHS.index(match.group(1)) + 1
+        return calendar.timegm((int(match.group(2)), month, 1, 0, 0, 0))
 
 
 def _text(data: Dict[str, Any], key: str) -> str:
@@ -71,6 +86,8 @@ def parse_meta(data: Any) -> Meta:
         raise ConfigError("meta.yaml: language must look like en or en-US")
     if not _VERSION.match(values["version"]):
         raise ConfigError("meta.yaml: version must look like 1.0.0")
+    if not _DATE.match(values["date"]):
+        raise ConfigError("meta.yaml: date must look like November 2026")
     if not _OUTPUT_NAME.match(values["output_name"]) or ".." in values["output_name"]:
         raise ConfigError("meta.yaml: output_name may contain only letters, digits, dot, underscore and hyphen")
 

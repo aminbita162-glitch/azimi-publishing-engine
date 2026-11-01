@@ -23,3 +23,6 @@ implied, including but not limited to the warranties of merchantability,
 fitness for a particular purpose and non-infringement. In no event shall the
 copyright holder be liable for any claim, damages or other liability arising
 from, out of or in connection with the Materials or their use.
+
+Exception: the font files in design-system/fonts are third-party works distributed under
+the SIL Open Font License. Their license texts are included in that folder.

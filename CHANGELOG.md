@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 - November 2026
+
+- Content parser with line-numbered errors
+- Metadata and brand validation
+- Confined path resolution
+- Rendering engine: cover, contents, headers, code, tables, figures, callouts
+- Bundled fonts verified by checksum and embedded in every PDF
+- Reproducible builds with a manifest of input and output checksums
+- Build command
+- Automated tests
+
 ## 0.1.1 - November 2026
 
 - Directive aligned with the ReportLab rendering pipeline

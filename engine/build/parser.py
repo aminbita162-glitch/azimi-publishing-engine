@@ -62,6 +62,7 @@ class Code(Block):
 class Table(Block):
     header: Tuple[str, ...]
     rows: Tuple[Tuple[str, ...], ...]
+    align: Tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -147,7 +148,11 @@ def _parse_table(rows: List[Tuple[int, str]]) -> Table:
         data.append(cells)
     for number, text in rows:
         _check_text(text, number)
-    return Table(line=first, header=header, rows=tuple(data))
+    align = tuple(
+        "center" if c.startswith(":") and c.endswith(":") else "right" if c.endswith(":") else "left"
+        for c in separator
+    )
+    return Table(line=first, header=header, rows=tuple(data), align=align)
 
 
 def parse(text: str) -> List[Block]:

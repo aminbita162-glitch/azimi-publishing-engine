@@ -43,7 +43,14 @@ class ParserTests(unittest.TestCase):
     def test_table(self):
         text = "| A | B |\n|---|:-:|\n| 1 | 2 |\n| 3 | 4 |\n"
         block = parse(text)[0]
-        self.assertEqual(block, Table(line=1, header=("A", "B"), rows=(("1", "2"), ("3", "4"))))
+        self.assertEqual(
+            block,
+            Table(line=1, header=("A", "B"), rows=(("1", "2"), ("3", "4")), align=("left", "center")),
+        )
+
+    def test_table_alignment_markers(self):
+        block = parse("| A | B | C |\n|:--|:-:|--:|\n| 1 | 2 | 3 |\n")[0]
+        self.assertEqual(block.align, ("left", "center", "right"))
 
     def test_table_requires_separator(self):
         with self.assertRaisesRegex(ContentError, "separator"):
