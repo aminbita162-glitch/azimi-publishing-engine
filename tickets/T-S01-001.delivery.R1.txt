@@ -1,0 +1,14 @@
+DELIVERY REPORT
+TICKET-ID: T-S01-001
+ROUND: R1
+FILES CHANGED: courses/agentic-ai-masterclass/session-01/content.md (assets unchanged)
+SUMMARY OF CHANGES:
+- (1) tab-evidence: new row, the reference code is educational and must not be used as it is in high-risk production systems.
+- (2) New section sec-dual-approval after sec-agency: identity assurance, dual approval with two independent approvers, trade-off, ends with what the reference code does not prove. Diagram fig-dual.
+- (3) New section sec-hash-chain after sec-observability (and tab-signals): hash chain, labeled PSEUDOCODE, what a hash chain does not protect against, no compliance claim. Diagram fig-hash-chain.
+- Glossary: Dual approval, Hash chain, Identity assurance, Tamper-evident.
+- Chapter 4 code and Appendix A untouched; no other text changed.
+IDS ADDED OR REMOVED: added sec-dual-approval, fig-dual, sec-hash-chain, fig-hash-chain; none removed.
+SELF-CHECK: F1 to F12 YES. engine check: PASS, 53 pages, 0 lint problems.
+OPEN QUESTIONS: none.
+SOURCES USED: content.md v2.1.0 and its reference code only; no outside sources.

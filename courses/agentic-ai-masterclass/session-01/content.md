@@ -239,6 +239,38 @@ The OWASP Top 10 for LLM Applications lists *Excessive Agency* as the risk of gi
 
 The *confused deputy* is an older problem that explains why a role check is not enough. A component that holds authority acts on behalf of a caller. If it does not verify that the caller was entitled to ask for this specific action, the caller borrows the component's authority. An executor that applies any change carrying the label "approved" is a confused deputy. Binding the approval to the digest, the tenant and the target removes the ambiguity about what was approved and for whom.
 
+## Identity assurance and dual approval {#sec-dual-approval}
+
+Who may approve a change, and when is one approver not enough?
+
+The gate in [[ch-code]] trusts the value in the `approver` column of the approval record. *Identity assurance* is the confidence that the approver named in an approval record is the identity that actually made the decision. The gate cannot create this confidence. It must come from the approval service, which authenticates the approver before it writes the record. If an attacker can write any approver identifier into the approval store, the authority check in the gate only compares the attacker's input with a permission row.
+
+*Dual approval* requires two independent approvers for one proposal before the gate may return ALLOW. Independent means three things. The two approvers are different identities. Neither of them is the agent that built the proposal. Each approval is bound to the same digest, tenant and target, so both approvers decided on exactly the same change. The excerpt in [[sec-aegis-levels]] names DUAL_APPROVAL as one level of a risk classification.
+
+[[fig-dual]] shows the condition a gate would check before it continues under dual approval.
+
+~~~diagram
+type: flow
+id: fig-dual
+caption: Dual approval for proposal P-001. Both approvals bind the same digest and come from two different identities.
+node prop: Proposal P-001 with its digest | process
+node a1: Approval by the first approver | store
+node a2: Approval by the second approver | store
+node chk: Two distinct identities, neither one the agent, same digest, tenant and target | decision
+node cont: Gate continues to the revision check | ok
+node deny: DENY | deny
+edge prop -> a1: same digest
+edge prop -> a2: same digest
+edge a1 -> chk
+edge a2 -> chk
+edge chk -> cont: yes
+edge chk -> deny: no
+~~~
+
+The trade-off is latency and attention. Every proposal that needs a second approver waits longer, and approvers who sign without reading turn the second approval into a formality. Reserve dual approval for changes that a risk classification marks as consequential.
+
+**What the reference code does not prove.** The reference code stores one approver per approval and checks only that this approver holds a permission row in the tenant. It does not authenticate any approver. It does not stop the approval store from accepting a record that names the agent as approver. It does not implement dual approval or check that two approvers are independent. Identity assurance and dual approval each need their own design, their own tests and their own evidence.
+
 ## Time of check and time of use {#sec-toctou}
 
 A *time-of-check to time-of-use* flaw (catalogued as CWE-367) appears when a condition is checked at one moment and relied on at a later moment, and the condition can change in between. In this session the check is "the revision is still 3" and the use is "write value 5". Two executors can both pass the check before either writes. The defense has two parts. The check is repeated inside the write transaction, and the write itself is conditional on the revision: `UPDATE ... WHERE revision=?`. [[fig-race]] shows the intended behavior of two executors that share one database file.
@@ -834,6 +866,53 @@ TABLE: tab-signals | Signals that make the gate observable
 | Executions in state UNKNOWN | Effects without evidence | Page an owner; reconcile before any retry |
 | Approvals consumed more than once | Replay attempts | Treat as a security event |
 
+## A tamper-evident audit log {#sec-hash-chain}
+
+How can a reader of the audit log notice that an earlier record was changed or removed?
+
+The audit table in [[sec-state]] is an ordinary table. Anyone who can write to the database can change a row, and nothing in the table reveals the change. A *tamper-evident* log does not prevent such a change. It makes the change detectable by a check against a value that is kept elsewhere.
+
+A *hash chain* is one way to build such a log. Every record stores the digest of the previous record, and its own digest is computed over its content together with that previous digest. The first record uses a fixed starting value. A change to any earlier record changes its digest, so the link stored in the next record no longer matches.
+
+**PSEUDOCODE.** Not executable, and not part of the reference code.
+
+~~~text
+function append(log, content):
+    previous = log.last_digest() or STARTING_VALUE
+    record_digest = sha256(canonical(content) + previous)
+    log.insert(content, previous, record_digest)
+
+function verify(log, trusted_latest_digest):
+    previous = STARTING_VALUE
+    for record in log.in_order():
+        if record.previous != previous: return BROKEN
+        if sha256(canonical(record.content) + previous) != record.digest: return BROKEN
+        previous = record.digest
+    if previous != trusted_latest_digest: return BROKEN
+    return INTACT
+~~~
+
+The append function computes each digest from the canonical form of the content and the previous digest, in the same way that [[sec-digest]] fixes the canonical form of a proposal. The verify function walks the chain from the start and compares the last digest with a copy that the writer of the log cannot change.
+
+[[fig-hash-chain]] shows three linked records.
+
+~~~diagram
+type: flow
+id: fig-hash-chain
+caption: A hash chain of three audit records. Each record stores the digest of the record before it.
+node start: Fixed starting value | state
+node r1: Record 1: content and the starting value | store
+node r2: Record 2: content and the digest of record 1 | store
+node r3: Record 3: content and the digest of record 2 | store
+node head: Latest digest, kept outside the database | ok
+edge start -> r1
+edge r1 -> r2
+edge r2 -> r3
+edge r3 -> head: copied out
+~~~
+
+**What a hash chain does not protect against.** A hash chain detects a change; it does not prevent it and it does not restore the lost content. An attacker who can rewrite the whole log and also the stored latest digest can build a new chain that verifies, so the latest digest must stay outside the reach of the log writer. A hash chain does not detect a record that was never written. It does not show that the content of a record was true. It does not prove who wrote a record, because a digest is not a signature. This section makes no compliance claim: whether an audit log meets a regulation or an audit standard needs its own evaluation.
+
 ## Staged rollout and rollback {#sec-rollout}
 
 Attach the gate in stages so that each stage has an exit criterion and a way back. [[fig-rollout]] shows the stages, and [[tab-rollout]] states what must be true before moving on.
@@ -982,6 +1061,7 @@ TABLE: tab-evidence | Claims, and how far each one is supported
 | A real file was rewritten atomically | Not proven. Do not claim it. |
 | Python and TypeScript behave identically at runtime | Not proven. Do not claim it. |
 | Crash recovery was tested and verified | Not proven. Do not claim it. |
+| The reference code may be used as it is in high-risk production systems | No. The code is educational. Do not use it as it is in high-risk production systems. |
 
 Identity assurance, management of authorities, multi-process concurrency, transaction durability, audit retention, distributed effects and resolution of the UNKNOWN state each need their own evaluation and their own evidence.
 
@@ -1149,18 +1229,22 @@ TABLE: tab-glossary | Glossary of terms used in this session
 | Compare-and-swap | An update that succeeds only if the value or revision is still the one the caller expects. |
 | Confused deputy | A component with authority that is tricked into using it for a caller who is not entitled to it. |
 | Digest | A fixed-length fingerprint of content, produced by a hash function such as SHA-256. It is not a signature. |
+| Dual approval | A rule that two independent approvers, neither of them the agent, must approve the same proposal before the gate may return ALLOW. |
 | Excessive agency | A model given more functionality, permissions or autonomy than its task needs. |
 | Execution | A controlled attempt to apply an approved change, which re-checks every condition. |
 | Fail closed | When a check cannot be completed or is violated, the answer is a refusal, not a permission. |
 | Gate decision | ALLOW, DENY or REVALIDATION_REQUIRED: whether an attempt may start now. |
 | Execution result | SUCCEEDED, FAILED or UNKNOWN: what happened when the attempt was made. |
+| Hash chain | A sequence of records in which each record stores the digest of the previous record, so a change to an earlier record becomes detectable. |
 | Idempotency key | A stable identifier sent with a request so that a repeated request does not repeat the effect. |
+| Identity assurance | The confidence that the approver named in an approval record is the identity that actually made the decision. |
 | Outbox | A table written in the same transaction as the state change, from which a relay delivers external effects. |
 | Proposal | A description of a change. It is untrusted data. |
 | Reconciliation | Reading back the real state to find out what happened after an ambiguous failure. |
 | Replay | Presenting a valid approval or request again after it was already used. |
 | Revision | A counter that increases on every change of a state, used to detect stale decisions. |
 | STRIDE | A classification of threats into spoofing, tampering, repudiation, information disclosure, denial of service and elevation of privilege. |
+| Tamper-evident | A property of a log: a change can be detected by a check, although the change is not prevented. |
 | Tenant | One customer or organization whose data and permissions must stay separate from all others. |
 | Time of check to time of use | A flaw in which a condition is checked at one moment and relied on later, after it may have changed. |
 | Trust boundary | The line between components whose output is trusted and components whose output is not. |

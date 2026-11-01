@@ -1,0 +1,15 @@
+DELIVERY REPORT
+TICKET-ID: T-S01-001
+ROUND: R2
+FILES CHANGED: courses/agentic-ai-masterclass/session-01/content.md (assets unchanged)
+SUMMARY OF CHANGES:
+- A7 page 34: the tall diagram fig-hash-chain did not fit after its introduction and moved to page 35, leaving page 34 39% blank.
+- Section 5.6 sec-hash-chain reordered only: the PSEUDOCODE block and its explanation paragraph now come before fig-hash-chain, so they fill page 34.
+- The sentence "[[fig-hash-chain]] shows three linked records." moved with the figure and stays directly above it (D2).
+- The paragraph on what a hash chain does not protect against still closes the section.
+- No word added or removed (word multiset identical to R1). No other section changed.
+IDS ADDED OR REMOVED: none.
+SELF-CHECK: F1 to F12 YES. engine check: PASS, 53 pages, 0 lint problems.
+OPEN QUESTIONS:
+1. The page fill can only be confirmed by engine build (A7), which Ali may not run. If A7 still fails, please return the new page number.
+SOURCES USED: content.md as delivered in R1 only.

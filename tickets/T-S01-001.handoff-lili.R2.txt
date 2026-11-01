@@ -1,0 +1,45 @@
+HANDOFF TO LILI
+TICKET-ID: T-S01-001
+FROM: Amilus  TO: Lili  SEQ: 6  TYPE: HANDOFF
+ROUND: R2 (first audit of this ticket)
+
+TASK: Audit Session 01 version 2.2.0 independently against ticket T-S01-001 and rules G1 to G10, and report findings with page numbers.
+
+FILES YOU MAY READ:
+- tickets/T-S01-001.txt
+- tickets/T-S01-001.delivery.R1.txt
+- tickets/T-S01-001.delivery.R2.txt
+- courses/agentic-ai-masterclass/session-01/content.md
+- courses/agentic-ai-masterclass/session-01/meta.yaml
+- courses/agentic-ai-masterclass/session-01/build/Azimi_Innovation_Lab_Agentic_AI_Masterclass_Session_01_v2.2.0.pdf
+- courses/agentic-ai-masterclass/session-01/build/Azimi_Innovation_Lab_Agentic_AI_Masterclass_Session_01_v2.2.0.pdf.manifest.json
+- agents/lili.txt
+
+FILES YOU MAY CHANGE: none, except creating tickets/T-S01-001.audit.R2.txt once (never overwrite).
+
+ENGINE EVIDENCE (Amilus, November 2026):
+engine check: exit 0, PASS, 53 pages, 0 lint problems
+engine build: exit 0, audit PASS 16/16, 53 pages, SHA-256 34c63586fcc130f05e4329795c87c0de14776b82b0acff509aa55c465c1abde5
+engine verify: exit 0, PASS (audit 16/16)
+
+FOCUS FROM THE TICKET:
+(1) tab-evidence has the new row: sample code is educational, not for use as is in high-risk production systems.
+(2) sec-dual-approval follows sec-agency: identity assurance, dual approval with two independent approvers, ends with what the reference code does not prove.
+(3) sec-hash-chain follows sec-observability: hash chain, no compliance claim, states what a hash chain does not protect against.
+All existing ids kept; new ids unique; glossary has the new terms; Appendix A listing identical to the code pieces of chapter 4; no other content changed except required cross-references and glossary entries.
+
+RULES THAT APPLY:
+G1 No personal names in the PDF text. The author name appears only on cover, imprint and rights.
+G2 Examples use only the owner's four projects with exact labels and links: AminOpsTwin, aegis-agent (with its Render and Swagger links), AlinaMatrix-Enterprise, kian-trading-intelligence.
+G3 No test runs or test results inside the PDF. Reference tests and code by label and link.
+G4 Every claim and every code block carries its label: REFERENCE CODE, SOURCE EXCERPT, PSEUDOCODE, HYPOTHETICAL SCENARIO, SOURCE-REPORTED.
+G5 Dates show month and year only.
+G6 No trace of AI-assisted authorship, no private chat text.
+G7 The Rights and License chapter is produced by the engine and is always last.
+G8 No invented facts, standards, links or versions. Unverified items go to OPEN QUESTIONS.
+G9 The series file name pattern and numbering are decided by the owner only.
+G10 Course profile: every numbered chapter starts with OBJECTIVES and ends with a KEY box that begins with the words Chapter summary.
+
+DONE WHEN: tickets/T-S01-001.audit.R2.txt exists with every finding classified by severity and page number.
+
+RETURN FORMAT: audit report with TICKET-ID, DOCUMENT AND VERSION, ARTIFACTS AUDITED, COUNTS, SCOPE NOT AUDITED, RE-AUDIT STATUS, RESULT, FINDINGS in the full block format, and exactly one of the two allowed closing statements.

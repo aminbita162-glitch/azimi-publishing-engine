@@ -1,6 +1,6 @@
 # Azimi Publishing Engine
 
-> # ACTIVE DEVELOPMENT - NOT FINISHED - NOT READY FOR PRODUCTION USE
+> # ACTIVE DEVELOPMENT - READY FOR ONE-COMMAND PDF PRODUCTION (v0.7.0 International Ready)
 > The engine builds and audits PDFs from the terminal today. Several planned parts do not exist yet. The exact list is under Roadmap.
 
 Deterministic, standards-driven engine for producing publication-grade PDF documents.

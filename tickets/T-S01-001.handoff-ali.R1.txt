@@ -1,0 +1,48 @@
+HANDOFF TO ALI
+TICKET-ID: T-S01-001
+FROM: Amilus  TO: Ali  SEQ: 2  TYPE: HANDOFF
+ROUND: R1
+
+TASK: Apply the three accepted changes of ticket T-S01-001 to content.md of Session 01 to produce version 2.2.0.
+
+FILES YOU MAY READ:
+- tickets/T-S01-001.txt
+- courses/agentic-ai-masterclass/session-01/content.md
+- courses/agentic-ai-masterclass/session-01/meta.yaml (read only; version is already 2.2.0)
+- courses/agentic-ai-masterclass/session-01/assets/
+- documentation/content-format.md
+- agents/ali.txt
+
+FILES YOU MAY CHANGE:
+- courses/agentic-ai-masterclass/session-01/content.md
+- files in courses/agentic-ai-masterclass/session-01/assets/ (only if a change requires it)
+- tickets/T-S01-001.delivery.R1.txt (your delivery report; create once, never overwrite)
+
+CHANGES REQUIRED (from the ticket, verbatim):
+(1) In the claims table with the id tab-evidence, add a row stating that the sample code is educational and must not be used as it is in high-risk production systems.
+(2) After the section with the id sec-agency, add a short section on identity assurance and dual approval (two independent approvers), ending with what the reference code does not prove.
+(3) After the section with the id sec-observability, add a short section on a tamper-evident audit log built as a hash chain, with no compliance claim and a statement of what a hash chain does not protect against.
+Keep every existing id, every owner rule and the course profile. Give every new section and table a new unique id. Add new terms to the glossary. The complete listing in Appendix A must stay identical to the code pieces of chapter 4.
+
+RULES THAT APPLY:
+G1 No personal names in the PDF text. The author name appears only on cover, imprint and rights.
+G2 Examples use only the owner's four projects with exact labels and links: AminOpsTwin, aegis-agent (with its Render and Swagger links), AlinaMatrix-Enterprise, kian-trading-intelligence.
+G3 No test runs or test results inside the PDF. Reference tests and code by label and link.
+G4 Every claim and every code block carries its label: REFERENCE CODE, SOURCE EXCERPT, PSEUDOCODE, HYPOTHETICAL SCENARIO, SOURCE-REPORTED.
+G5 Dates show month and year only.
+G6 No trace of AI-assisted authorship, no private chat text.
+G7 The Rights and License chapter is produced by the engine and is always last.
+G8 No invented facts, standards, links or versions. Unverified items go to OPEN QUESTIONS.
+G9 The series file name pattern and numbering are decided by the owner only.
+G10 Course profile: every numbered chapter starts with OBJECTIVES and ends with a KEY box that begins with the words Chapter summary.
+
+SOURCES: No outside sources. Use only content.md v2.1.0 and its existing reference code. Any statement that needs a source goes to OPEN QUESTIONS.
+
+DONE WHEN:
+- The three changes are present, each new section and table has a new unique id.
+- All existing ids are unchanged; no other content changes except required cross-references and glossary entries.
+- Appendix A listing is identical to the code pieces of chapter 4.
+- python3 -m engine check on the document folder passes with 0 lint problems (Amilus runs it).
+- tickets/T-S01-001.delivery.R1.txt exists.
+
+RETURN FORMAT: DELIVERY REPORT with TICKET-ID, FILES CHANGED, SUMMARY OF CHANGES, IDS ADDED OR REMOVED, SELF-CHECK F1 to F12, OPEN QUESTIONS, SOURCES USED, written to tickets/T-S01-001.delivery.R1.txt.

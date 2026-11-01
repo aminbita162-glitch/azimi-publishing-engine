@@ -1,0 +1,50 @@
+HANDOFF TO ALI
+TICKET-ID: T-S01-001
+FROM: Amilus  TO: Ali  SEQ: 4  TYPE: HANDOFF
+ROUND: R2
+
+TASK: Fix the page fill audit failure on page 34 of Session 01 v2.2.0 by changing the order or flow of text in content.md, without changing meaning or ids.
+
+ENGINE RESULT (verbatim, python3 -m engine build courses/agentic-ai-masterclass/session-01, exit 3):
+error: the audit failed; the document must not be released
+Pages     : 53
+Audit     : FAIL (15/16 checks)
+  A7 FAIL  Body pages are filled to at least 72%: page 34 (39% blank)
+All other checks A1 to A6 and A8 to A16: PASS.
+
+GUIDANCE (engine error table): A7 usually means a figure or table moved to the next page. Change the order of the text around the figure or table that follows page 34 (likely fig-hash-chain, fig-dual or tab-signals near the new sections). Do not shorten or pad content with new claims; do not change the engine.
+
+FILES YOU MAY READ:
+- tickets/T-S01-001.txt
+- tickets/T-S01-001.handoff-ali.R1.txt
+- tickets/T-S01-001.delivery.R1.txt
+- courses/agentic-ai-masterclass/session-01/content.md
+- courses/agentic-ai-masterclass/session-01/build/Azimi_Innovation_Lab_Agentic_AI_Masterclass_Session_01_v2.2.0.pdf
+- documentation/content-format.md
+- agents/ali.txt
+
+FILES YOU MAY CHANGE:
+- courses/agentic-ai-masterclass/session-01/content.md
+- files in courses/agentic-ai-masterclass/session-01/assets/ (only if required)
+- tickets/T-S01-001.delivery.R2.txt (create once, never overwrite)
+
+RULES THAT APPLY:
+G1 No personal names in the PDF text. The author name appears only on cover, imprint and rights.
+G2 Examples use only the owner's four projects with exact labels and links: AminOpsTwin, aegis-agent (with its Render and Swagger links), AlinaMatrix-Enterprise, kian-trading-intelligence.
+G3 No test runs or test results inside the PDF. Reference tests and code by label and link.
+G4 Every claim and every code block carries its label: REFERENCE CODE, SOURCE EXCERPT, PSEUDOCODE, HYPOTHETICAL SCENARIO, SOURCE-REPORTED.
+G5 Dates show month and year only.
+G6 No trace of AI-assisted authorship, no private chat text.
+G7 The Rights and License chapter is produced by the engine and is always last.
+G8 No invented facts, standards, links or versions. Unverified items go to OPEN QUESTIONS.
+G9 The series file name pattern and numbering are decided by the owner only.
+G10 Course profile: every numbered chapter starts with OBJECTIVES and ends with a KEY box that begins with the words Chapter summary.
+
+SOURCES: No outside sources. content.md as delivered in R1 only.
+
+DONE WHEN:
+- python3 -m engine build gives audit 16 of 16 PASS (Amilus runs it).
+- The three ticket changes from R1 remain present; all ids unchanged; Appendix A identical to chapter 4 code.
+- tickets/T-S01-001.delivery.R2.txt exists.
+
+RETURN FORMAT: DELIVERY REPORT with TICKET-ID, FILES CHANGED, SUMMARY OF CHANGES, IDS ADDED OR REMOVED, SELF-CHECK F1 to F12, OPEN QUESTIONS, SOURCES USED, written to tickets/T-S01-001.delivery.R2.txt.
