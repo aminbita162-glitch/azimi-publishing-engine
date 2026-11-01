@@ -44,7 +44,7 @@ Not a word processor, not a web service, not a content writer, not an accessibil
 - design-system/fonts : bundled fonts, license texts, checksums, optional fonts.yaml
 - engine/ : paths, schemas, parser, lint, brand loader, renderer, diagrams, syntax coloring, audit, builder, tools, command line and tests
 - courses/ : one folder per document
-- AGENTS.md : the planned duties of the three working agents; the agents are not built
+- AGENTS.md and agents/ : the three working agents (manager, composer, auditor): their complete role definitions and how they are run. They run in an external agent app on the owner's computer, not inside the engine
 - TEST_LOG.md : evidence for every verification; CHANGELOG.md : release history
 - SECURITY.md and THIRD_PARTY_NOTICES.md
 
@@ -68,7 +68,7 @@ Not built yet, in the order currently planned:
 
 1. Delivery command that copies the PDF to an output folder and verifies the checksum
 2. Quality filters Q01 to Q30 as executable checks, extending the audit
-3. Three working agents (content composer, builder, auditor) under the rules in AGENTS.md
+3. Agents inside the product: the three agents are defined (agents/) and run in an external app on the owner's computer since November 2026. Still to build: a gate command, JSON output and built-in agents for users who do not have that app
 4. PDF/UA tagging and PDF/A output, which need a different or additional PDF writer than ReportLab
 5. More bundled font families; hyphenation
 6. Continuous integration

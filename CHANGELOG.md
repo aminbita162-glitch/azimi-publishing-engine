@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 - November 2026
+
+- The three agent role definitions are installed in agents/ (manager, composer, auditor)
+- AGENTS.md rewritten: how the agents run, their limits and how to restore them
+- README and HANDBOOK corrected: agents run in an external application, not inside the engine
+- Tests check that every role file is complete, consistent and free of local paths
+
 ## 0.5.0 - November 2026
 
 - Selectable font families (fonts.yaml, checksum verified)
