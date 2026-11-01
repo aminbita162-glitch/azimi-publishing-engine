@@ -56,7 +56,11 @@ from ..schemas.meta import Meta
 from .fonts import check_glyphs
 from .inline import to_markup, to_plain
 from .styles import (
-    CODE_PADDING,
+    CODE_BACKGROUND,
+    CODE_CHUNK_LINES,
+    CODE_PADDING_LEFT,
+    CODE_PADDING_RIGHT,
+    CODE_PADDING_VERTICAL,
     CODE_SIZE,
     CONTENT_HEIGHT,
     CONTENT_WIDTH,
@@ -79,6 +83,7 @@ DEFAULT_IMAGE_DPI = 150.0
 MAX_IMAGE_HEIGHT = CONTENT_HEIGHT * 0.6
 MAX_PIXELS = 40_000_000
 CONTINUATION_INDENT = "  "
+KEEP_WITH_NEXT_MAX = 240
 
 
 @dataclass(frozen=True)
@@ -203,7 +208,7 @@ def _wrap_code_line(line: str, limit: int) -> List[str]:
 
 
 def _code_flowables(block: Code, styles: Styles) -> List:
-    available = CONTENT_WIDTH - 2 * CODE_PADDING - 2 * CODE_PADDING
+    available = CONTENT_WIDTH - CODE_PADDING_LEFT - CODE_PADDING_RIGHT
     char_width = pdfmetrics.stringWidth("M", "Mono", CODE_SIZE)
     limit = max(20, int(available // char_width))
     for text in block.lines:
@@ -211,18 +216,67 @@ def _code_flowables(block: Code, styles: Styles) -> List:
     wrapped: List[str] = []
     for text in block.lines:
         wrapped.extend(_wrap_code_line(text, limit))
+    if not wrapped:
+        wrapped = [" "]
+    chunks = [wrapped[i:i + CODE_CHUNK_LINES] for i in range(0, len(wrapped), CODE_CHUNK_LINES)]
+    tables: List[Table] = []
+    for index, chunk in enumerate(chunks):
+        table = Table([[Preformatted("\n".join(chunk), styles.code)]], colWidths=[CONTENT_WIDTH], hAlign="LEFT")
+        table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Mono"),
+                    ("BACKGROUND", (0, 0), (-1, -1), CODE_BACKGROUND),
+                    ("LINEBEFORE", (0, 0), (0, -1), 2.5, styles.accent),
+                    ("LEFTPADDING", (0, 0), (-1, -1), CODE_PADDING_LEFT),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), CODE_PADDING_RIGHT),
+                    ("TOPPADDING", (0, 0), (-1, -1), CODE_PADDING_VERTICAL if index == 0 else 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), CODE_PADDING_VERTICAL if index == len(chunks) - 1 else 0),
+                ]
+            )
+        )
+        tables.append(table)
     label = Paragraph(to_markup(block.language.upper()), styles.code_label)
-    body = Preformatted("\n".join(wrapped) if wrapped else " ", styles.code)
-    return [label, body]
+    return [KeepTogether([label, tables[0]])] + tables[1:] + [Spacer(1, 12)]
+
+
+TABLE_FONT_SIZE = 9.5
+TABLE_CELL_PADDING = 12
 
 
 def _column_widths(header: Sequence[str], rows: Sequence[Sequence[str]]) -> List[float]:
-    weights = []
-    for column in range(len(header)):
-        longest = max([len(to_plain(header[column]))] + [len(to_plain(row[column])) for row in rows])
+    """Proportional widths that never break a word in the middle of a column."""
+    count = len(header)
+    weights: List[float] = []
+    minimums: List[float] = []
+    for column in range(count):
+        texts = [to_plain(header[column])] + [to_plain(row[column]) for row in rows]
+        longest = max(len(text) for text in texts)
         weights.append(min(max(longest, 6), 42) + 4)
-    total = float(sum(weights))
-    return [CONTENT_WIDTH * weight / total for weight in weights]
+        longest_word = max(
+            (pdfmetrics.stringWidth(word, "Body-Bold", TABLE_FONT_SIZE) for text in texts for word in text.split()),
+            default=0.0,
+        )
+        minimums.append(longest_word + TABLE_CELL_PADDING + 2)
+
+    if sum(minimums) >= CONTENT_WIDTH:
+        total_minimum = float(sum(minimums))
+        return [CONTENT_WIDTH * value / total_minimum for value in minimums]
+
+    total_weight = float(sum(weights))
+    widths = [CONTENT_WIDTH * weight / total_weight for weight in weights]
+    for _ in range(count):
+        short = [i for i in range(count) if widths[i] < minimums[i]]
+        if not short:
+            break
+        deficit = sum(minimums[i] - widths[i] for i in short)
+        for i in short:
+            widths[i] = minimums[i]
+        donors = [i for i in range(count) if i not in short and widths[i] > minimums[i]]
+        spare = sum(widths[i] - minimums[i] for i in donors)
+        for i in donors:
+            widths[i] -= deficit * (widths[i] - minimums[i]) / spare
+    return widths
 
 
 def _table_flowable(block: TableBlock, styles: Styles) -> Table:
@@ -388,7 +442,8 @@ def _story(blocks: Sequence[Block], doc_dir: Path, styles: Styles) -> Tuple[List
     figure = 0
     seen_h1 = False
 
-    for block in blocks:
+    for position, block in enumerate(blocks):
+        following = blocks[position + 1] if position + 1 < len(blocks) else None
         if isinstance(block, Heading):
             check_glyphs(block.text, "Body", block.line)
             style = {1: styles.h1, 2: styles.h2, 3: styles.h3}[block.level]
@@ -401,7 +456,9 @@ def _story(blocks: Sequence[Block], doc_dir: Path, styles: Styles) -> Tuple[List
             )
         elif isinstance(block, ParagraphBlock):
             check_glyphs(block.text, "Body", block.line)
-            story.append(Paragraph(to_markup(block.text, block.line), styles.body))
+            introduces = isinstance(following, (Code, TableBlock, ImageBlock)) and len(block.text) <= KEEP_WITH_NEXT_MAX
+            style = styles.body_keep if introduces else styles.body
+            story.append(Paragraph(to_markup(block.text, block.line), style))
         elif isinstance(block, BulletList):
             story.extend(_list_flowable(block, styles, numbered=False))
         elif isinstance(block, NumberedList):

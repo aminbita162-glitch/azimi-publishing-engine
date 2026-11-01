@@ -182,3 +182,37 @@ class RenderEdgeCaseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LayoutTests(unittest.TestCase):
+    def test_table_columns_never_split_a_word(self):
+        from reportlab.pdfbase import pdfmetrics
+        from engine.render.document import _column_widths
+        from engine.render.fonts import register_fonts
+        from engine.tests.support import REAL_ROOT
+
+        register_fonts(REAL_ROOT / "design-system" / "fonts")
+        header = ("Row", "Gate decision", "Reason")
+        rows = (("Tampered", "DENY", "The digest does not match the approval"),
+                ("Replay", "DENY", "The approval is already CONSUMED"))
+        widths = _column_widths(header, rows)
+        self.assertAlmostEqual(sum(widths), 470.55, delta=1.0)
+        self.assertGreater(widths[0], pdfmetrics.stringWidth("Tampered", "Body-Bold", 9.5) + 12)
+
+    def test_intro_paragraph_stays_with_its_code_block(self):
+        filler = "\n\n".join("Filler paragraph number %d of the document body." % i for i in range(1, 34))
+        content = "# Title\n\n" + filler + "\n\nREFERENCE CODE.\n\n~~~python\n" + "\n".join("x = %d" % i for i in range(30)) + "\n~~~\n"
+        with TempProject(content=content, with_image=False) as root:
+            result = build_document(root, "courses/doc")
+            pages = [p.extract_text() for p in read(result.pdf_path).pages]
+        holder = [i for i, text in enumerate(pages) if "REFERENCE CODE." in text]
+        code = [i for i, text in enumerate(pages) if "x = 0" in text]
+        self.assertEqual(holder, code)
+
+    def test_long_code_block_is_split_across_chunks_without_loss(self):
+        lines = "\n".join("value_%03d = %d" % (i, i) for i in range(60))
+        with TempProject(content="# T\n\n~~~python\n" + lines + "\n~~~\n", with_image=False) as root:
+            result = build_document(root, "courses/doc")
+            text = "".join(p.extract_text() for p in read(result.pdf_path).pages)
+        for i in (0, 11, 12, 59):
+            self.assertIn("value_%03d = %d" % (i, i), text)

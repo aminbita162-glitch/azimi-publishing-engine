@@ -25,7 +25,10 @@ BODY_SIZE = 10.5
 BODY_LEADING = 15.5
 CODE_SIZE = 8.6
 CODE_LEADING = 11.6
-CODE_PADDING = 6
+CODE_PADDING_LEFT = 12
+CODE_PADDING_RIGHT = 8
+CODE_PADDING_VERTICAL = 9
+CODE_CHUNK_LINES = 12
 
 TEXT = colors.HexColor("#1F2933")
 MUTED = colors.HexColor("#5F6B7A")
@@ -60,6 +63,7 @@ class Styles:
     accent: colors.Color
     on_primary: colors.Color
     body: ParagraphStyle
+    body_keep: ParagraphStyle
     list_item: ParagraphStyle
     h1: ParagraphStyle
     h2: ParagraphStyle
@@ -94,6 +98,7 @@ def build_styles(brand: Brand) -> Styles:
         "Body", fontName="Body", fontSize=BODY_SIZE, leading=BODY_LEADING, textColor=TEXT,
         alignment=TA_LEFT, spaceAfter=7, allowWidows=0, allowOrphans=0,
     )
+    body_keep = ParagraphStyle("BodyKeep", parent=body, keepWithNext=1)
     list_item = ParagraphStyle("ListItem", parent=body, spaceAfter=3)
     h1 = ParagraphStyle(
         "H1", parent=body, fontName="Body-Bold", fontSize=26, leading=31, textColor=primary,
@@ -109,8 +114,6 @@ def build_styles(brand: Brand) -> Styles:
     )
     code = ParagraphStyle(
         "Code", fontName="Mono", fontSize=CODE_SIZE, leading=CODE_LEADING, textColor=TEXT,
-        backColor=CODE_BACKGROUND, borderColor=RULE, borderWidth=0.5, borderPadding=CODE_PADDING,
-        leftIndent=CODE_PADDING, rightIndent=CODE_PADDING, spaceBefore=2, spaceAfter=14,
     )
     code_label = ParagraphStyle(
         "CodeLabel", fontName="Mono-Bold", fontSize=7.5, leading=10, textColor=accent,
@@ -157,7 +160,7 @@ def build_styles(brand: Brand) -> Styles:
     )
 
     return Styles(
-        primary=primary, accent=accent, on_primary=readable_on(primary), body=body, list_item=list_item, h1=h1, h2=h2, h3=h3,
+        primary=primary, accent=accent, on_primary=readable_on(primary), body=body, body_keep=body_keep, list_item=list_item, h1=h1, h2=h2, h3=h3,
         code=code, code_label=code_label, caption=caption, table_cell=table_cell,
         table_header=table_header, callout_text=callout_text, callout_label=callout_label,
         warning_label=warning_label, cover_title=cover_title, cover_subtitle=cover_subtitle,

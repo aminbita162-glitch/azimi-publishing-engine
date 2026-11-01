@@ -4,3 +4,5 @@
 | T-007 | November 2026 | Engine | Rendering: embedded fonts, outline, metadata, document language, reproducible builds, error reporting | python3 -m unittest discover output | PASS |
 | T-008 | November 2026 | Brand | Optional tagline, wide header logo on the cover, default brand configuration | python3 -m unittest discover output | PASS |
 | T-009 | November 2026 | Brand | Default brand loads with the header logo (transparent PNG, width within limits) | engine.brand.load_brand output | PASS |
+| T-010 | November 2026 | Course code | Session 01 reference code: eleven unit tests kept as course source (valid, tampered, stale, replay, tenant, expiry, approver, rollback, boolean, allowlist, digest) | python3 -m unittest -v tests.test_session01_reference | PASS |
+| T-011 | November 2026 | Document | Session 01 PDF: build, page-by-page visual review, delivery checksum match | build manifest and delivery checksum | PASS |

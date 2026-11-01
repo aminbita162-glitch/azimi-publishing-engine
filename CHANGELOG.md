@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 - November 2026
+
+- Code blocks drawn as framed panels that flow across pages
+- Table columns never split words
+- Introductions stay with the code, table or figure they introduce
+- Course workspace for Session 01 of the Agentic AI Masterclass: source text, reference code, tests and figure
+
 ## 0.2.0 - November 2026
 
 - Content parser with line-numbered errors
