@@ -157,7 +157,7 @@ def build_styles(brand: Brand) -> Styles:
     )
     h2 = ParagraphStyle(
         "H2", parent=body, fontName="Body-Bold", fontSize=17, leading=22, textColor=primary,
-        spaceBefore=16, spaceAfter=7, keepWithNext=1,
+        spaceBefore=6, spaceAfter=7, keepWithNext=1,
     )
     h3 = ParagraphStyle(
         "H3", parent=body, fontName="Body-Bold", fontSize=13, leading=18, textColor=TEXT,
@@ -175,7 +175,7 @@ def build_styles(brand: Brand) -> Styles:
     )
     caption = ParagraphStyle(
         "Caption", parent=body, fontName="Body-Italic", fontSize=9, leading=12, textColor=MUTED,
-        alignment=TA_CENTER, spaceBefore=4, spaceAfter=12,
+        alignment=TA_CENTER, spaceBefore=4, spaceAfter=6,
     )
     table_caption = ParagraphStyle(
         "TableCaption", parent=body, fontName="Body-Bold", fontSize=9.5, leading=12.5, textColor=primary,
@@ -210,7 +210,7 @@ def build_styles(brand: Brand) -> Styles:
     cover_subtitle = ParagraphStyle(
         "CoverSubtitle", parent=body, fontSize=16, leading=22, textColor=MUTED, spaceAfter=6,
     )
-    cover_meta = ParagraphStyle("CoverMeta", parent=body, fontSize=11, leading=16, spaceAfter=3)
+    cover_meta = ParagraphStyle("CoverMeta", parent=body, fontSize=11, leading=14, spaceAfter=3)
     cover_meta_label = ParagraphStyle(
         "CoverMetaLabel", parent=cover_meta, fontName="Body-Bold", fontSize=8.5, leading=11,
         textColor=accent_text, spaceBefore=10, spaceAfter=1,
@@ -222,7 +222,7 @@ def build_styles(brand: Brand) -> Styles:
         "ImprintTitle", parent=body, fontName="Body-Bold", fontSize=18, leading=23, textColor=primary, spaceAfter=4,
     )
     imprint_subtitle = ParagraphStyle(
-        "ImprintSubtitle", parent=body, fontSize=11.5, leading=16, textColor=MUTED, spaceAfter=10,
+        "ImprintSubtitle", parent=body, fontSize=11.5, leading=14, textColor=MUTED, spaceAfter=10,
     )
     imprint_label = ParagraphStyle(
         "ImprintLabel", parent=body, fontName="Body-Bold", fontSize=8, leading=11, textColor=accent_text,
@@ -231,7 +231,7 @@ def build_styles(brand: Brand) -> Styles:
     imprint_text = ParagraphStyle("ImprintText", parent=body, fontSize=10, leading=14.5, spaceAfter=2)
     toc_title = ParagraphStyle("TocTitle", parent=h1, spaceAfter=10)
     toc1 = ParagraphStyle(
-        "Toc1", parent=body, fontName="Body-Bold", fontSize=11.5, leading=16, spaceBefore=7, spaceAfter=0,
+        "Toc1", parent=body, fontName="Body-Bold", fontSize=11.5, leading=14, spaceBefore=7, spaceAfter=0,
     )
     toc2 = ParagraphStyle(
         "Toc2", parent=body, fontSize=10.5, leading=14.5, leftIndent=14, spaceBefore=1, spaceAfter=0,
