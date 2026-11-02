@@ -248,3 +248,5 @@ def build_styles(brand: Brand) -> Styles:
         imprint_text=imprint_text, toc_title=toc_title,
         toc1=toc1, toc2=toc2,
     )
+
+# Phase 7: smart punctuation and typography foundation
