@@ -1097,3 +1097,5 @@ def render_document(
     )
 
 # XMP metadata foundation placeholder
+
+# Basic tagged PDF structure foundation (StructTreeRoot placeholder)
