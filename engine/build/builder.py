@@ -272,6 +272,11 @@ def post_process_pdf(pdf_path: str) -> None:
         # Basic XMP foundation
         if pdf.docinfo is not None:
             pdf.docinfo["/Producer"] = "Azimi Publishing Engine"
+        # Rich XMP foundation
+        with pdf.open_metadata() as meta:
+            meta["dc:title"] = "Azimi Innovation Lab Publication"
+            meta["dc:creator"] = ["Amin Azimi"]
+            meta["pdf:Producer"] = "Azimi Publishing Engine"
         pdf.save(pdf_path)
  for tagging and XMP
 # TODO: apply structure tree and XMP packet after ReportLab render
