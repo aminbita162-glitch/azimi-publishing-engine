@@ -1,3 +1,3 @@
 """Content integrity tools foundation."""
-def check_code_sync() -> bool:
+def validate_ticket(*args, **kwargs):
     return True
