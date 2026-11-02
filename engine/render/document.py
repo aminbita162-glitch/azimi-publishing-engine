@@ -1095,3 +1095,5 @@ def render_document(
         pdf=buffer.getvalue(), pages=document.page, images=tuple(images), exempt_pages=tuple(sorted(exempt)),
         min_image_dpi=dpi, contrast=contrast_pairs(styles),
     )
+
+# XMP metadata foundation placeholder
