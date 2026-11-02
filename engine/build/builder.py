@@ -263,3 +263,4 @@ def verify_document(project_root, document_dir) -> VerifyResult:
     if not report.passed:
         problems.append("the audit fails on the stored PDF")
     return VerifyResult(not problems, tuple(problems), report)
+Reproducibility note added to build
