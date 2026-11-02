@@ -278,5 +278,6 @@ def post_process_pdf(pdf_path: str) -> None:
             meta["dc:creator"] = ["Amin Azimi"]
             meta["pdf:Producer"] = "Azimi Publishing Engine"
         pdf.save(pdf_path)
+        post_process_pdf(pdf_path)
  for tagging and XMP
 # TODO: apply structure tree and XMP packet after ReportLab render
