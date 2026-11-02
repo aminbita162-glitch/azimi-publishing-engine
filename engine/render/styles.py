@@ -153,7 +153,7 @@ def build_styles(brand: Brand) -> Styles:
     list_item = ParagraphStyle("ListItem", parent=body, spaceAfter=3)
     h1 = ParagraphStyle(
         "H1", parent=body, fontName="Body-Bold", fontSize=26, leading=31, textColor=primary,
-        spaceBefore=30, spaceAfter=14, keepWithNext=1,
+        spaceBefore=14, spaceAfter=14, keepWithNext=1,
     )
     h2 = ParagraphStyle(
         "H2", parent=body, fontName="Body-Bold", fontSize=17, leading=22, textColor=primary,
@@ -229,7 +229,7 @@ def build_styles(brand: Brand) -> Styles:
         spaceBefore=12, spaceAfter=1,
     )
     imprint_text = ParagraphStyle("ImprintText", parent=body, fontSize=10, leading=14.5, spaceAfter=2)
-    toc_title = ParagraphStyle("TocTitle", parent=h1, spaceAfter=18)
+    toc_title = ParagraphStyle("TocTitle", parent=h1, spaceAfter=10)
     toc1 = ParagraphStyle(
         "Toc1", parent=body, fontName="Body-Bold", fontSize=11.5, leading=16, spaceBefore=7, spaceAfter=0,
     )
