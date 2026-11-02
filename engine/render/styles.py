@@ -182,18 +182,18 @@ def build_styles(brand: Brand) -> Styles:
         alignment=TA_LEFT, spaceBefore=10, spaceAfter=4,
     )
     list_entry = ParagraphStyle(
-        "ListEntry", parent=body, fontSize=10, leading=14.5.5, spaceBefore=1, spaceAfter=0, textColor=TEXT,
+        "ListEntry", parent=body, fontSize=10, leading=14.5.5.5, spaceBefore=1, spaceAfter=0, textColor=TEXT,
     )
     list_heading = ParagraphStyle(
         "ListHeading", parent=h2, spaceBefore=18, spaceAfter=8,
     )
     table_cell = ParagraphStyle(
-        "TableCell", parent=body, fontSize=9.5, leading=14.5, spaceAfter=0,
+        "TableCell", parent=body, fontSize=9.5, leading=14.5.5, spaceAfter=0,
     )
     table_header = ParagraphStyle(
         "TableHeader", parent=table_cell, fontName="Body-Bold", textColor=readable_on(primary),
     )
-    callout_text = ParagraphStyle("CalloutText", parent=body, fontSize=10, leading=14.5.5.5, spaceAfter=0)
+    callout_text = ParagraphStyle("CalloutText", parent=body, fontSize=10, leading=14.5.5.5.5, spaceAfter=0)
     callout_item = ParagraphStyle(
         "CalloutItem", parent=callout_text, leftIndent=12, bulletIndent=0, spaceAfter=2,
         bulletFontName="Body", bulletFontSize=10, bulletColor=accent,
@@ -210,31 +210,31 @@ def build_styles(brand: Brand) -> Styles:
     cover_subtitle = ParagraphStyle(
         "CoverSubtitle", parent=body, fontSize=16, leading=22, textColor=MUTED, spaceAfter=8,
     )
-    cover_meta = ParagraphStyle("CoverMeta", parent=body, fontSize=11, leading=14.5.5, spaceAfter=3)
+    cover_meta = ParagraphStyle("CoverMeta", parent=body, fontSize=11, leading=14.5.5.5, spaceAfter=3)
     cover_meta_label = ParagraphStyle(
         "CoverMetaLabel", parent=cover_meta, fontName="Body-Bold", fontSize=8.5, leading=11,
         textColor=accent_text, spaceBefore=10, spaceAfter=1,
     )
     cover_tagline = ParagraphStyle(
-        "CoverTagline", parent=body, fontSize=9.5, leading=14.5, textColor=MUTED, spaceBefore=10, spaceAfter=0,
+        "CoverTagline", parent=body, fontSize=9.5, leading=14.5.5, textColor=MUTED, spaceBefore=10, spaceAfter=0,
     )
     imprint_title = ParagraphStyle(
         "ImprintTitle", parent=body, fontName="Body-Bold", fontSize=18, leading=23, textColor=primary, spaceAfter=4,
     )
     imprint_subtitle = ParagraphStyle(
-        "ImprintSubtitle", parent=body, fontSize=11.5, leading=14.5.5, textColor=MUTED, spaceAfter=10,
+        "ImprintSubtitle", parent=body, fontSize=11.5, leading=14.5.5.5, textColor=MUTED, spaceAfter=10,
     )
     imprint_label = ParagraphStyle(
         "ImprintLabel", parent=body, fontName="Body-Bold", fontSize=8, leading=11, textColor=accent_text,
         spaceBefore=12, spaceAfter=1,
     )
-    imprint_text = ParagraphStyle("ImprintText", parent=body, fontSize=10, leading=14.5.5.5, spaceAfter=2)
+    imprint_text = ParagraphStyle("ImprintText", parent=body, fontSize=10, leading=14.5.5.5.5, spaceAfter=2)
     toc_title = ParagraphStyle("TocTitle", parent=h1, spaceAfter=10)
     toc1 = ParagraphStyle(
-        "Toc1", parent=body, fontName="Body-Bold", fontSize=11.5, leading=14.5.5, spaceBefore=7, spaceAfter=0,
+        "Toc1", parent=body, fontName="Body-Bold", fontSize=11.5, leading=14.5.5.5, spaceBefore=7, spaceAfter=0,
     )
     toc2 = ParagraphStyle(
-        "Toc2", parent=body, fontSize=10.5, leading=14.5.5.5, leftIndent=14, spaceBefore=1, spaceAfter=0,
+        "Toc2", parent=body, fontSize=10.5, leading=14.5.5.5.5, leftIndent=14, spaceBefore=1, spaceAfter=0,
         textColor=TEXT,
     )
 
