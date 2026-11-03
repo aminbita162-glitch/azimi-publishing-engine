@@ -614,3 +614,5 @@ class DiagramFlowable(Flowable):
         canvas.restoreState()
         if self._caption is not None:
             self._caption.drawOn(canvas, 0, DIAGRAM_SPACE_AFTER)
+
+# Phase 4: diagram collision and vector foundation

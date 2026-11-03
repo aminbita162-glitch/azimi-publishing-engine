@@ -1,0 +1,59 @@
+=== S0 PREFLIGHT ===
+Date: Sun Nov  1 23:17:33 UTC 2026
+PWD: /Users/hermesdev/azimi-publishing-engine
+## main...origin/main
+ M courses/agentic-ai-masterclass/session-01/meta.yaml
+?? evidence/
+---
+d790dfb +50 level international grade elevation
+1be108f International grade visual elevation
+2c22457 Deep engine visual and output upgrade
+c34c587 Engine-0.5.3-tickets-as-files-and-session-01-version-2.2.0
+703d9a7 Engine-0.5.2-agent-checksums-delivery-command-and-directive-V1.2
+---
+origin	https://github.com/aminbita162-glitch/azimi-publishing-engine.git (fetch)
+origin	https://github.com/aminbita162-glitch/azimi-publishing-engine.git (push)
+---
+total 160
+drwxr-xr-x  24 hermesdev  staff    768 Nov  2 00:17 .
+drwxr-x---+ 46 hermesdev  staff   1472 Nov  1 22:50 ..
+drwxr-xr-x@ 13 hermesdev  staff    416 Nov  2 00:17 .git
+-rw-r--r--@  1 hermesdev  staff     66 Nov  1 14:01 .gitattributes
+-rw-r--r--@  1 hermesdev  staff   3514 Nov  1 17:07 .gitignore
+drwxr-xr-x@  6 hermesdev  staff    192 Oct 31 20:36 .venv
+-rw-r--r--@  1 hermesdev  staff   4773 Nov  1 21:00 AGENTS.md
+-rw-r--r--@  1 hermesdev  staff   3959 Nov  1 21:00 CHANGELOG.md
+-rw-r--r--@  1 hermesdev  staff  12144 Nov  1 23:01 HANDBOOK.md
+-rw-r--r--@  1 hermesdev  staff   1477 Nov  1 15:26 LICENSE
+-rw-r--r--@  1 hermesdev  staff   5114 Nov  1 23:01 README.md
+-rw-r--r--@  1 hermesdev  staff   1217 Nov  1 19:12 SECURITY.md
+-rw-r--r--@  1 hermesdev  staff   3064 Nov  1 21:00 TEST_LOG.md
+-rw-r--r--@  1 hermesdev  staff    835 Nov  1 19:12 THIRD_PARTY_NOTICES.md
+drwxr-xr-x@  6 hermesdev  staff    192 Nov  1 20:41 agents
+drwx------@  3 hermesdev  staff     96 Nov  1 16:48 brand
+drwxr-xr-x@  3 hermesdev  staff     96 Nov  1 17:45 courses
+drwx------@  3 hermesdev  staff     96 Nov  1 15:26 design-system
+-rw-r--r--@  1 hermesdev  staff  17218 Nov  1 21:00 directive.txt
+drwx------@  3 hermesdev  staff     96 Nov  1 14:50 documentation
+drwx------@ 17 hermesdev  staff    544 Nov  1 22:50 engine
+drwxr-xr-x@  3 hermesdev  staff     96 Nov  2 00:17 evidence
+-rw-r--r--@  1 hermesdev  staff     60 Nov  1 22:50 requirements.txt
+drwxr-xr-x@ 10 hermesdev  staff    320 Nov  1 21:25 tickets
+---
+245M	.venv
+Python 3.12.13
+/Users/hermesdev/azimi-publishing-engine/.venv/bin/python3
+/usr/bin/python3
+ProductName:		macOS
+ProductVersion:		26.5.2
+BuildVersion:		25F84
+arm64
+--- Tools ---
+qpdf          /opt/homebrew/bin/qpdf
+pdfinfo       /opt/homebrew/bin/pdfinfo
+pdffonts      /opt/homebrew/bin/pdffonts
+pdfimages     /opt/homebrew/bin/pdfimages
+pdftoppm      /opt/homebrew/bin/pdftoppm
+pdftotext     /opt/homebrew/bin/pdftotext
+mutool        MISSING
+gs            MISSING
