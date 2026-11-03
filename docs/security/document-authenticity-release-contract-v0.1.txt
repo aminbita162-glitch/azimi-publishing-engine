@@ -1,0 +1,53 @@
+AZIMI PUBLISHING ENGINE
+STEP 02 — DOCUMENT AUTHENTICITY AND SECURE RELEASE CONTRACT
+STATUS: DESIGN PROPOSAL FOR OWNER REVIEW — NOT IMPLEMENTED
+VERSION: draft-0.1 | DATE: 2026-11-03
+
+SCOPE AND AUTHORITY
+This is a portable, commercial-product design, not a machine-specific configuration. It does not authorize source changes, package installation, key generation, commits, pushes, or releases. Existing fail-closed release guard must remain active until separately approved implementation and security acceptance.
+
+1. TRUST BOUNDARIES
+Untrusted: PDF input, metadata, embedded QR, network, remote registry responses, filesystem paths, user-supplied manifests. Trusted only after validation: pinned publisher trust anchor, approved key-provider identity, locally authenticated owner action, durable transactional state. A QR is never itself proof of issuer identity.
+
+2. IDENTIFIERS AND ENVELOPES
+Define issuer_id, document_id, edition_id, issuance_id, artifact_id, key_id as opaque identifiers, with versioned schema and explicit limits. No username, absolute path, secret or personal data in QR. Reject duplicate keys, unknown fields, invalid encodings, noncanonical numbers and oversized payloads. Adopt one specified canonical JSON algorithm with frozen test vectors before implementation; do not assume Python json.dumps alone is a cross-language standard.
+
+3. SEPARATE SIGNATURE DOMAINS
+A. OWNER RELEASE APPROVAL: domain-separated Ed25519 authorization binding owner, issuer, document, approved immutable snapshot, manifest, destination policy, approval ID and policy epoch. One-time authorization with durable consumption semantics.
+B. CONTENT AUTHENTICITY: independent Ed25519 statement binding issuer, document edition, pre-QR logical-content commitment, rendering policy version, evidence manifest digest, issuance ID and key ID.
+C. EXACT FILE RECEIPT: separately signed, externally stored receipt binding the final PDF SHA-256, artifact ID, issuance ID, content-statement digest and issuance timestamp. Never embed final-file hash inside the PDF being hashed.
+Do not reuse a signature across domains. Private keys must not appear in repository, QR, PDFs, reports or logs.
+
+4. QR PROTOCOL
+QR contains version, issuer ID, document ID, issuance ID, and either a compact signed content statement or an HTTPS locator plus digest, with strict size and allowed-origin policy. Offline verification can establish content-statement signature only when signed statement and trusted key material are available. QR-only scans do NOT prove the current PDF bytes match the signed receipt. Exact-file validation requires the PDF bytes and independently obtained signed receipt. Online lookup is optional, privacy-minimized, authenticated and resistant to locator substitution.
+
+5. TRUST AND KEY LIFECYCLE
+Publisher-scoped trust registry, explicitly enrolled trust anchors, key validity periods, policy epochs, rotation and revocation records. Registry updates must themselves be authenticated and rollback-protected. Define bounded offline freshness and distinguish signature validity from current revocation status. Key-provider interface supports platform keystores or HSM, with no Mac-only hardcoding. Actual custody choice and dependency pinning require separate approval.
+
+6. REPLAY AND IDEMPOTENCY
+Approval ID unique per issuer/policy context. Atomic database transaction: check unused approval, verify authorization and snapshot, reserve issuance, commit consumption and intent; concurrent duplicate requests fail closed or return the same recorded result under an explicit idempotency contract. Signed authenticity receipts remain reusable for verification; they are not one-time release authorizations. Crash recovery must not create second releases.
+
+7. ATOMIC DELIVERY STATE MACHINE
+PREPARED -> AUTHORIZED -> STAGED -> VERIFIED -> COMMITTED -> RECEIPTED; explicit ABORTED and RECOVERY_REQUIRED states. Immutable snapshot opened safely; reject symlink/path escapes and concurrent mutation. Stage on same filesystem; verify hashes; exclusive no-overwrite publication with filesystem-specific atomic guarantees; fsync file and directory when supported; durable journal and recovery reconciliation. Unsupported guarantees must block release rather than silently downgrade. The receipt is independently distributed or retrievable; verify it against the committed file.
+
+8. VERIFIER RESULT MODEL
+VALID_CONTENT, VALID_FILE, INVALID_SIGNATURE, UNKNOWN_ISSUER, UNKNOWN_KEY, REVOKED, EXPIRED, STATUS_UNAVAILABLE, CONTENT_MISMATCH, FILE_MISMATCH, MALFORMED, POLICY_UNSUPPORTED. Never collapse unknown revocation state into VALID. Offline outputs must explicitly indicate freshness and scope of verification. Clock skew and offline expiration policy must be documented.
+
+9. THREAT MODEL AND NEGATIVE TESTS
+Tampered or substituted QR; malicious HTTPS redirect; forged issuer; swapped signed statement; modified PDF bytes; altered manifest; duplicate JSON keys; malformed Unicode; oversized QR; compromised/rotated/revoked keys; stale registry; rollback; approval replay; concurrent release; crash at each state transition; symlink swaps; TOCTOU; preexisting destination; disk-full; unsupported filesystem; incomplete receipt; legacy RELEASE_APPROVAL.txt bypass. Test each with positive, negative, boundary, regression and recovery cases, including cross-language canonicalization vectors.
+
+10. MIGRATION AND ACCEPTANCE GATES
+Gate A: owner approves final schemas, threat model, verification guarantees, custody strategy and migration.
+Gate B: separately authorized implementation behind disabled release switch; preserve existing build, preview, verify and draft workflows.
+Gate C: independent adversarial suite, platform compatibility, failure-injection and reproducible evidence; no skipped security-critical tests.
+Gate D: owner inspects evidence and explicitly authorizes enabling secure release. Old plaintext approval must not grant release once new gate is enabled.
+
+OPEN DECISIONS REQUIRING OWNER APPROVAL
+- Offline QR mode: self-contained signature vs compact locator with locally bundled statement.
+- Canonical JSON standard and cross-language vectors.
+- Revocation freshness policy and offline trust behavior.
+- Supported filesystems and atomicity guarantees across macOS/Windows/Linux.
+- Key custody provider(s), publisher enrollment and online verification service governance.
+
+NEXT ACTION
+Review this contract. After explicit approval, authorize writing the versioned design document into the repository. No implementation or release is implied by design approval.
