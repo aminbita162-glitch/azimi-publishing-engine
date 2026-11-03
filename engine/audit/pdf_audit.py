@@ -16,7 +16,7 @@ from pypdf import PdfReader
 from ..render.styles import MARGIN_BOTTOM, MARGIN_TOP, PAGE_HEIGHT, PAGE_WIDTH
 from ..schemas.meta import Meta
 
-MAX_BLANK_RATIO = 0.45
+MAX_BLANK_RATIO = 0.35
 MAX_PDF_BYTES = 25 * 1024 * 1024
 MIN_PAGE_TEXT = 20
 MIN_FONT_SIZE = 7.5

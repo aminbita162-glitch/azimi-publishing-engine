@@ -825,7 +825,7 @@ def _imprint(meta: Meta, brand: Brand, styles: Styles) -> List:
     for label, value in entries:
         story.append(Paragraph(label, styles.imprint_label))
         story.append(Paragraph(to_markup(value), styles.imprint_text))
-    story.append(Spacer(1, 70 * mm))
+    story.append(Spacer(1, 15 * mm))
     story.append(HRFlowable(width="100%", thickness=0.5, color=RULE, spaceBefore=0, spaceAfter=4))
     closing = [
         ("COPYRIGHT", f"Copyright (c) {year} {meta.author}. All rights reserved."),

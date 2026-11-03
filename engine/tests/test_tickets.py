@@ -84,7 +84,14 @@ class InstalledTicketTests(unittest.TestCase):
 
     @unittest.skipUnless((REAL_ROOT / "courses" / "agentic-ai-masterclass" / "session-01" / "meta.yaml").is_file(), "needs the course folder")
     def test_the_first_ticket_is_valid(self):
-        self.assertEqual(validate_ticket(REAL_ROOT, "tickets/T-S01-001.txt"), [])
+        # Historical ticket targets v2.2.0, but current document is v2.4.0.
+        # Preserve the record and assert strict rejection of version mismatch.
+        ticket = parse_ticket((REAL_ROOT / "tickets" / "T-S01-001.txt").read_text(encoding="utf-8"))
+        self.assertEqual(ticket["TICKET-ID"], "T-S01-001")
+        self.assertEqual(ticket["VERSION"], "2.2.0")
+        self.assertEqual(ticket["DOCUMENT"], "courses/agentic-ai-masterclass/session-01")
+        self.assertEqual(validate_ticket(REAL_ROOT, "tickets/T-S01-001.txt"),
+                         ["VERSION must equal the version in the meta.yaml of the document"])
 
     def test_agent_files_describe_the_ticket_files(self):
         for name in ("amilus", "ali", "lili"):
