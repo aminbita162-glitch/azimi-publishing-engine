@@ -1,12 +1,12 @@
 version: 1.0
 spacing:
   section: 12
-  paragraph: 6
-  heading_before: 14
+  paragraph: 7
+  heading_before: 54
 typography:
   body_size: 11
-  body_leading: 15
-  code_size: 9
+  body_leading: 16.4
+  code_size: 8.6
 color:
   text_primary: "#1F2933"
   surface_warning: "#B42318"

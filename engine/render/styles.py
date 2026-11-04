@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import yaml
 from typing import Dict
 
 from reportlab.lib import colors
@@ -21,21 +23,33 @@ MARGIN_BOTTOM = 24 * mm
 CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
 CONTENT_HEIGHT = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM
 
-BODY_SIZE = 11.0
-BODY_LEADING = 16.4
-CODE_SIZE = 8.6
+def _load_design_tokens():
+    path = Path(__file__).resolve().parents[2] / "design-system" / "tokens.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or data.get("version") != 1.0:
+        raise ValueError("design tokens: unsupported version")
+    for group in ("spacing", "typography", "color"):
+        if not isinstance(data.get(group), dict):
+            raise ValueError(f"design tokens: missing {group}")
+    return data
+
+
+DESIGN_TOKENS = _load_design_tokens()
+BODY_SIZE = float(DESIGN_TOKENS["typography"]["body_size"])
+BODY_LEADING = float(DESIGN_TOKENS["typography"]["body_leading"])
+CODE_SIZE = float(DESIGN_TOKENS["typography"]["code_size"])
 CODE_LEADING = 11.6
 CODE_PADDING_LEFT = 12
 CODE_PADDING_RIGHT = 8
 CODE_PADDING_VERTICAL = 9
 CODE_CHUNK_LINES = 8
 
-TEXT = colors.HexColor("#1F2933")
+TEXT = colors.HexColor(DESIGN_TOKENS["color"]["text_primary"])
 MUTED = colors.HexColor("#5F6B7A")
 RULE = colors.HexColor("#D5DBE3")
 ZEBRA = colors.HexColor("#F4F6F8")
 CODE_BACKGROUND = colors.HexColor("#F4F6F8")
-WARNING = colors.HexColor("#B42318")
+WARNING = colors.HexColor(DESIGN_TOKENS["color"]["surface_warning"])
 TIP = colors.HexColor("#0F766E")
 CHECKPOINT = colors.HexColor("#1D6FA5")
 EXAMPLE = colors.HexColor("#5B4B9A")
@@ -147,13 +161,13 @@ def build_styles(brand: Brand) -> Styles:
 
     body = ParagraphStyle(
         "Body", fontName="Body", fontSize=BODY_SIZE, leading=BODY_LEADING, textColor=TEXT,
-        alignment=TA_LEFT, spaceAfter=7, allowWidows=0, allowOrphans=0,
+        alignment=TA_LEFT, spaceAfter=DESIGN_TOKENS["spacing"]["paragraph"], allowWidows=0, allowOrphans=0,
     )
     body_keep = ParagraphStyle("BodyKeep", parent=body, keepWithNext=1)
     list_item = ParagraphStyle("ListItem", parent=body, spaceAfter=3)
     h1 = ParagraphStyle(
         "H1", parent=body, fontName="Body-Bold", fontSize=26, leading=31, textColor=primary,
-        spaceBefore=54, spaceAfter=14, keepWithNext=1,
+        spaceBefore=DESIGN_TOKENS["spacing"]["heading_before"], spaceAfter=14, keepWithNext=1,
     )
     h2 = ParagraphStyle(
         "H2", parent=body, fontName="Body-Bold", fontSize=17, leading=22, textColor=primary,
