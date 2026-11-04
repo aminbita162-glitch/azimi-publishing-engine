@@ -185,6 +185,7 @@ def deliver_pdf(project_root: Union[str, Path], document_dir: str, mode: str) ->
     pdf = folder / BUILD_DIR / f"{meta.output_name}_v{meta.version}.pdf"
     checksum = _sha256_file(pdf)
     if mode == "release":
+        raise ConfigError("release temporarily disabled pending cryptographic owner authorization")
         approval = folder / APPROVAL_FILE
         if not approval.is_file():
             raise ConfigError(f"release stopped: {APPROVAL_FILE} is missing in the document folder")

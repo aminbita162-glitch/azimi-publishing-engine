@@ -84,16 +84,17 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(deliver_pdf(self.root, "courses/doc", "draft"), target)
 
     def test_release_needs_the_owner_approval_of_this_exact_pdf(self):
-        with self.assertRaises(ConfigError) as raised:
-            deliver_pdf(self.root, "courses/doc", "release")
-        self.assertIn(APPROVAL_FILE, str(raised.exception))
-        self.approval.write_text("APPROVED " + "0" * 64 + "\n", encoding="utf-8")
-        with self.assertRaises(ConfigError) as raised:
-            deliver_pdf(self.root, "courses/doc", "release")
-        self.assertIn("checksum", str(raised.exception))
-        self.approval.write_text(f"APPROVED {self.checksum} by the owner, November 2026\n", encoding="utf-8")
-        target = deliver_pdf(self.root, "courses/doc", "release")
-        self.assertEqual(target.parent, Path(self.out.name))
+        # Legacy plaintext approval must never bypass the temporary fail-closed gate.
+        for approval_text in (
+            None,
+            "APPROVED " + "0" * 64 + "\n",
+            f"APPROVED {self.checksum} by the owner, November 2026\n",
+        ):
+            if approval_text is not None:
+                self.approval.write_text(approval_text, encoding="utf-8")
+            with self.assertRaisesRegex(ConfigError, "release temporarily disabled"):
+                deliver_pdf(self.root, "courses/doc", "release")
+            self.assertEqual(list(Path(self.out.name).rglob("*.pdf")), [])
 
     def test_different_content_is_never_overwritten(self):
         target = Path(self.out.name) / "Drafts" / self.result.pdf_path.name
