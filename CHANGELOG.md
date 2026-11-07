@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.6 - November 2026 (Phase 5)
+
+- Image safety: EXIF orientation transpose in _figure_size via ImageOps.exif_transpose; Figure accepts path string or PIL image source; non-EXIF images use existing path-based behaviour (no change to existing PDFs)
+- Image safety tests: corrupt image, huge image (>MAX_PIXELS), transparent RGBA, JPEG acceptance, symlink rejection, EXIF orientation (dimension + build), image-with-id-requires-caption, aspect ratio, non-PNG/JPEG rejection (11 tests)
+- Table engine tests: multi-page header repetition, wide table (8 columns), Unicode cells, empty cells, long text wrapping, nested formatting (bold/italic/code), caption/numbering end-to-end, content correspondence, deterministic rebuild (9 tests)
+- Diagram engine tests: flow/sequence/layers rendering, too-tall rejection, too-many-nodes rejection, long label wrapping, cycles/back-edges, caption with list-of-figures, flowable scaling, vector-not-raster (10 tests)
+- Composition tests: image+table+diagram adjacency, figure/table caption LOF/LOT, chapter boundary with visual content, all-16-check audit, build performance, deterministic rebuild (9 tests)
+- Phase 5 closure: 384 tests pass, 61-page course A1-A16 all PASS (16/16), visual QA 30/61 vision-inspected (PARTIAL) + 61/61 pixel + text extraction, zero defects
+
 ## 0.5.5 - November 2026 (Phase 4)
 
 - A7 false-fill defence: a painted rectangle spanning at least 90% of the body-frame height (a decorative full-page background, watermark or rule) is no longer counted as body fill; real content rectangles (table cells, code frames, diagram nodes — all far shorter) are still counted

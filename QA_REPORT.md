@@ -155,3 +155,55 @@ A1–A16 all PASS (16/16), exit 0. A7: 33 non-exempt body pages, minimum fill 89
 - Pages pixel-analyzed: 61/61
 - Pages text-extracted: 61/61
 - Defects found: 0
+
+---
+
+## Phase 5 Visual QA Report — Session 01 v2.5.0
+
+**Date:** November 2026
+**Branch:** phase2-a7-validation
+**PDF:** Azimi_Innovation_Lab_Agentic_AI_Masterclass_Session_01_v2.5.0.pdf
+**Pages:** 61
+**SHA-256:** 22a5e046e69f8aa7c010109c54c8a7513715481e46096331573ba360cde92a5f
+
+### Code change
+
+One source modification in Phase 5: `engine/render/document.py` — EXIF orientation transpose in `_figure_size`; `Figure` accepts path string or PIL image source via `ImageReader`. Non-EXIF images use the existing path-based behaviour (no change to existing PDFs). The target course uses PNG images without EXIF, so the PDF bytes are unchanged from Phase 4.
+
+### Inspection method
+
+1. **Vision API inspection (PARTIAL)** — 5 contact sheets (pages 1-18, 25-36) inspected via vision_analyze at half-resolution (3x2 grid). No defects found. The vision backend became unavailable ("model does not support image input") for sheets 4 (pages 19-24) and 7-11 (pages 37-61).
+2. **PIL pixel-level analysis** — all 61 pages analyzed for density, content boundaries, blank-streak detection. No anomalous density. GAPs on exempt pages (front matter, chapter boundaries, last page) are structural.
+3. **pypdf text extraction** — all 61 pages extracted: no empty pages, no garbled pages, no replacement characters. Figure numbers 1-17 and table numbers 1-19 continuous with no gaps. 67 outline entries verified.
+
+### Vision-flagged issues (all confirmed false positives)
+
+1. Page 16 "missing Figure 5" — FALSE POSITIVE. Page 16 contains the layers diagram for Figure 5 (text labels visible in pypdf extraction). Half-resolution contact sheet made the diagram blend with text.
+2. Page 32 "duplicate tables" — FALSE POSITIVE. Page 32 is a chapter-start page (chapter 5) with LEARNING OBJECTIVES callout, not tables.
+3. "Header clipping" on pages 31-36 — FALSE POSITIVE. Running header is intentionally left-aligned at the top of each body page.
+4. "Missing Figure 15.16" — FALSE POSITIVE. Figure numbers are 1-17 (not 15.x). A10 confirms no gaps.
+
+### Per-page summary
+
+| Range | Inspected | Method | Result | Notes |
+|-------|-----------|--------|--------|-------|
+| 1-18 | YES | Vision + PIL + pypdf | PASS | Cover, TOC, lists, chapters 1-3. No defects. |
+| 19-24 | PARTIAL | PIL + pypdf | PASS | Vision unavailable. All pages have content. |
+| 25-36 | YES | Vision + PIL + pypdf | PASS | Chapters 4-5. Diagrams, tables, code blocks intact. |
+| 37-61 | PARTIAL | PIL + pypdf | PASS | Vision unavailable. All pages have content (min 306 chars on last page). |
+
+### Audit re-verification
+
+A1-A16 all PASS (16/16), exit 0. A7: 33 non-exempt body pages, minimum fill 89.3%.
+
+### Coverage
+
+- Pages rendered: 61/61
+- Pages visually inspected by vision: 30/61 (PARTIAL — backend unavailable for 31 pages)
+- Pages pixel-analyzed: 61/61
+- Pages text-extracted: 61/61
+- Defects found: 0
+
+### Test suite
+
+384 tests pass (345 baseline + 39 new Phase 5 tests). 1 deprecation warning (pypdf add_js, pre-existing).
