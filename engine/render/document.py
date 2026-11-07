@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from PIL import Image as PILImage
+from PIL import Image as PILImage, ImageOps
 from reportlab import rl_config
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
@@ -628,11 +628,11 @@ class Figure(Flowable):
     """
 
     def __init__(
-        self, path: str, width: float, height: float, caption: Optional[Paragraph], entry=None
+        self, source, width: float, height: float, caption: Optional[Paragraph], entry=None
     ) -> None:
         super().__init__()
         self.list_entry = entry
-        self._path = path
+        self._source = source
         self._width = width
         self._height = height
         self._caption = caption
@@ -661,12 +661,12 @@ class Figure(Flowable):
         canvas = self.canv
         left = (self._box_width - self._draw_width) / 2
         image_bottom = FIGURE_SPACE_AFTER + self._caption_height + (FIGURE_CAPTION_GAP if self._caption is not None else 0.0)
-        canvas.drawImage(ImageReader(self._path), left, image_bottom, self._draw_width, self._draw_height, mask="auto")
+        canvas.drawImage(ImageReader(self._source), left, image_bottom, self._draw_width, self._draw_height, mask="auto")
         if self._caption is not None:
             self._caption.drawOn(canvas, 0, FIGURE_SPACE_AFTER)
 
 
-def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[Path, float, float]:
+def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[object, float, float]:
     try:
         path = resolve_inside(doc_dir, block.path)
     except Exception as exc:
@@ -674,10 +674,18 @@ def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[Path, float, float]:
     if not path.is_file():
         raise ContentError(f"image file not found: {block.path}", block.line)
     try:
-        with PILImage.open(path) as image:
-            image.load()
+        image = PILImage.open(path)
+        image.load()
+        exif = image.getexif()
+        orientation = exif.get(0x0112, 1) if exif else 1
+        if orientation != 1:
+            oriented = ImageOps.exif_transpose(image)
+            source = oriented
+            width_px, height_px = oriented.size
+        else:
+            source = str(path)
             width_px, height_px = image.size
-            raw_dpi = image.info.get("dpi", (DEFAULT_IMAGE_DPI, DEFAULT_IMAGE_DPI))[0]
+        raw_dpi = image.info.get("dpi", (DEFAULT_IMAGE_DPI, DEFAULT_IMAGE_DPI))[0]
     except Exception as exc:
         raise ContentError(f"image cannot be read: {block.path}", block.line) from exc
     if width_px * height_px > MAX_PIXELS:
@@ -685,7 +693,7 @@ def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[Path, float, float]:
     dpi = float(raw_dpi) if raw_dpi and float(raw_dpi) >= 36 else DEFAULT_IMAGE_DPI
     width, height = _scaled_size(width_px, height_px, dpi, CONTENT_WIDTH, MAX_IMAGE_HEIGHT)
     IMAGE_DPI.append(width_px / (width / 72.0))
-    return path, width, height
+    return source, width, height
 
 
 def short_caption(text: str) -> str:
@@ -703,7 +711,7 @@ def _caption_markup(label: str, number: int, text: str, line: int, refs: Dict[st
 def _image_flowable(
     block: ImageBlock, doc_dir: Path, styles: Styles, number: Optional[int], used: List[str], refs: Dict[str, str]
 ) -> List:
-    path, width, height = _figure_size(block, doc_dir)
+    source, width, height = _figure_size(block, doc_dir)
     used.append(block.path)
     caption = None
     entry = None
@@ -711,7 +719,7 @@ def _image_flowable(
         markup = _caption_markup("Figure", number, block.caption, block.line, refs, block.ref_id)
         caption = Paragraph(markup, styles.caption)
         entry = ("LOFEntry", f"Figure {number}. {short_caption(to_plain(block.caption, block.line))}", f"list-figure-{number}")
-    return [Figure(str(path), width, height, caption, entry)]
+    return [Figure(source, width, height, caption, entry)]
 
 
 def _diagram_flowable(
