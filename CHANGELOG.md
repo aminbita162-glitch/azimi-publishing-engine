@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.4 - November 2026
+
+- A7 page-fill threshold raised from 72% to 87% (MAX_BLANK_RATIO 0.35 → 0.13)
+- Page-fill measurement now includes painted rectangles and XObject images, not just text baselines
+- Audit reporting: Check.issues carries the full structured failure list; detail shows a bounded preview with an explicit total count (no silent truncation beyond six)
+- Manifest verify hardened: validates digest format, rejects boolean byte counts, parent-directory traversal, backslash paths, wrong-brand paths and malformed audit metadata
+- Layout calibration: H2/H3 spaceBefore 50/52 → 28, code_label spaceBefore 50 → 18, table_caption spaceBefore 50 → 24, CHAPTER_MIN_SPACE 58mm → 28mm, KeepTogether wrapper removed from code blocks, MIN_DIAGRAM_SCALE 0.85 → 0.78
+- chapter_pages dual-page exemption: when chapter_pages is true, both the chapter-end page (KEY POINT summary) and the chapter-start page (heading + objectives) are exempt from A7 as structural boundaries
+- TempProject test helper supports both context-manager and setUpClass/tearDownClass protocols
+- Dead unreachable brand-namespace branch removed from verify_document
+- Release delivery hard-disabled pending cryptographic owner authorization
+- Regression tests: audit reporting (9), manifest negative (12), pagination contract (4)
+
 ## 0.5.3 - November 2026
 
 - Tickets as files: the owner writes tickets/ID.txt, the agents exchange handoff, delivery, audit and report files in the tickets folder

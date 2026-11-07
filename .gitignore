@@ -185,3 +185,6 @@ __pycache__/
 *.pyc
 .DS_Store
 courses/**/build/
+.bob/
+*.bak
+*.a7-prepatch.bak

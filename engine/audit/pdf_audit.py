@@ -16,7 +16,7 @@ from pypdf import PdfReader
 from ..render.styles import MARGIN_BOTTOM, MARGIN_TOP, PAGE_HEIGHT, PAGE_WIDTH
 from ..schemas.meta import Meta
 
-MAX_BLANK_RATIO = 0.35
+MAX_BLANK_RATIO = 0.13  # 87% minimum body-page coverage
 MAX_PDF_BYTES = 25 * 1024 * 1024
 MIN_PAGE_TEXT = 20
 MIN_FONT_SIZE = 7.5
@@ -31,6 +31,7 @@ class Check:
     name: str
     status: str
     detail: str
+    issues: Tuple[str, ...] = ()
 
     @property
     def passed(self) -> bool:
@@ -51,7 +52,14 @@ class AuditReport:
         return {
             "result": "PASS" if self.passed else "FAIL",
             "checks": [
-                {"id": c.id, "name": c.name, "status": c.status, "detail": c.detail} for c in self.checks
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "status": c.status,
+                    "detail": c.detail,
+                    "issues": list(c.issues),
+                }
+                for c in self.checks
             ],
             "page_fill": [round(value, 3) for value in self.page_fill],
             "exempt_pages": list(self.exempt_pages),
@@ -64,7 +72,14 @@ def _normalize(text: str) -> str:
 
 
 def page_fill_ratios(reader: PdfReader) -> List[float]:
-    """Fraction of the body area used on each page, measured from the lowest body text line."""
+    """Fraction of the body area used on each page.
+
+    Measured from the lowest drawn element (text characters, painted
+    rectangles and inline images) to the top of the body frame.  Tables,
+    code blocks and figures all paint background rectangles or images below
+    their last text line, so including those operators gives a more accurate
+    picture of how much of the page is actually used.
+    """
     top = PAGE_HEIGHT - MARGIN_TOP
     bottom = MARGIN_BOTTOM
     ratios: List[float] = []
@@ -77,12 +92,44 @@ def page_fill_ratios(reader: PdfReader) -> List[float]:
                 if bottom - 2 <= y <= top + 2:
                     _lowest.append(y)
 
-        page.extract_text(visitor_text=visit)
+        page.extract_text(visitor_text=visit, visitor_operand_before=_rect_visitor(lowest, bottom, top))
         if not lowest:
             ratios.append(0.0)
         else:
             ratios.append(max(0.0, min(1.0, (top - min(lowest)) / (top - bottom))))
     return ratios
+
+
+def _rect_visitor(lowest: list, bottom: float, top: float):
+    """Return a visitor_operand_before callback that records painted-rectangle and
+    XObject-image bottoms.
+
+    pypdf calls visitor_operand_before(operator, operands, cm_matrix, tm_matrix).
+    """
+
+    def visitor(operator, operands, cm_matrix, tm_matrix):  # noqa: ARG001
+        # 're' (rectangle): operands are [x, y, width, height]
+        if operator == b"re" and len(operands) >= 4:
+            try:
+                y = float(operands[1])
+                h = float(operands[3])
+                y_low = min(y, y + h)
+                if bottom - 2 <= y_low <= top + 2:
+                    lowest.append(y_low)
+            except (TypeError, ValueError):
+                pass
+        # 'Do' (XObject — drawn image/form): the current cm_matrix encodes the
+        # bounding box.  For a unit-square image placed with [w 0 0 h x y] cm,
+        # the bottom-left y is the cm_matrix translation component (index 5).
+        elif operator == b"Do" and cm_matrix:
+            try:
+                y_low = float(cm_matrix[5])
+                if bottom - 2 <= y_low <= top + 2:
+                    lowest.append(y_low)
+            except (TypeError, ValueError, IndexError):
+                pass
+
+    return visitor
 
 
 def _outline_entries(reader: PdfReader) -> List[Tuple[str, int]]:
@@ -119,8 +166,16 @@ def audit_pdf(
     checks: List[Check] = []
 
     def add(check_id: str, name: str, problems: Sequence[str], ok_detail: str) -> None:
+        problems = list(problems)
+        if problems:
+            preview = "; ".join(problems[:6])
+            if len(problems) > 6:
+                preview += f"; … ({len(problems)} total, see issues)"
+            detail = preview
+        else:
+            detail = ok_detail
         checks.append(
-            Check(check_id, name, "FAIL" if problems else "PASS", "; ".join(problems[:6]) if problems else ok_detail)
+            Check(check_id, name, "FAIL" if problems else "PASS", detail, tuple(problems))
         )
 
     # A1 text on every page

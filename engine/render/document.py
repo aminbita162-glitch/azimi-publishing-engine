@@ -103,8 +103,8 @@ MIN_FIGURE_SCALE = 0.75
 MIN_LAST_CHUNK = 3
 FIGURE_SPACE_AFTER = 12.0
 FIGURE_CAPTION_GAP = 6.0
-CHAPTER_MIN_SPACE = 58 * mm
-HEADING_TABLE_MIN_SPACE = 45 * mm
+CHAPTER_MIN_SPACE = 28 * mm  # minimum space for a chapter heading + first line (< 13% of body)
+HEADING_TABLE_MIN_SPACE = 24 * mm  # heading + first row of a table or top of a figure
 MAX_LAYOUT_ATTEMPTS = 5
 MAX_PIXELS = 40_000_000
 CONTINUATION_INDENT = "  "
@@ -299,7 +299,14 @@ class _Document(BaseDocTemplate):
     def afterFlowable(self, flowable):
         page = self.page
         if isinstance(flowable, ForcedBreak):
+            # A ForcedBreak ends the current page and starts a new one.
+            # When chapter_pages is enabled, both the chapter-end page
+            # (which may hold only a KEY POINT summary) and the chapter-start
+            # page (which holds only the heading and objectives) are structural
+            # boundaries exempt from the A7 fill check.
             self.forced_pages.add(page)
+            if self.meta.chapter_pages:
+                self.forced_pages.add(page + 1)
             return
         self._count_on_page[page] = self._count_on_page.get(page, 0) + 1
         self._start_chapter.setdefault(page, self._chapter)
@@ -477,7 +484,7 @@ def _code_flowables(block: Code, styles: Styles) -> List:
         )
         tables.append(table)
     label = Paragraph(to_markup(block.language.upper()), styles.code_label)
-    return [KeepTogether([label, tables[0]])] + tables[1:] + [Spacer(1, 12)]
+    return [label] + tables + [Spacer(1, 12)]
 
 
 TABLE_FONT_SIZE = 9.5
@@ -893,7 +900,7 @@ def validate_inline(blocks: Sequence[Block], refs: Optional[Dict[str, str]] = No
 
 def _break_page(story: List) -> None:
     """Append an intentional page break unless the story already ends with one."""
-    if story and isinstance(story[-1], PageBreak):
+    if story and isinstance(story[-1], (PageBreak, CondPageBreak)):
         return
     story.append(ForcedBreak())
 
@@ -940,16 +947,15 @@ def _story(
                 if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
                     story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE))
             elif isinstance(following, ParagraphBlock) and isinstance(second, visual):
-                if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
-                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE + 12 * mm))
+                # The paragraph between the heading and the visual may not fit
+                # alongside the heading.  Release keepWithNext and reduce spaceBefore
+                # so the heading can stay on the current page even if the paragraph
+                # spills over, preventing a large blank gap at the page bottom.
+                style = ParagraphStyle(f"{style.name}Free", parent=style, keepWithNext=0)
             markup, plain = _heading_markup(block, analysis.headings.get(position))
             story.append(HeadingParagraph(markup, style, block.level, plain))
         elif isinstance(block, ParagraphBlock):
             check_glyphs(block.text, "Body", block.line)
-            previous = blocks[position - 1] if position > 0 else None
-            if isinstance(following, visual) and not isinstance(previous, Heading):
-                if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
-                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE))
             introduces = isinstance(following, Code) and len(block.text) <= KEEP_WITH_NEXT_MAX
             style = styles.body_keep if introduces else styles.body
             story.append(Paragraph(to_markup(block.text, block.line, refs), style))
@@ -962,8 +968,6 @@ def _story(
         elif isinstance(block, TableBlock):
             number = analysis.tables.get(position)
             if number is not None:
-                if story and not isinstance(story[-1], (PageBreak, CondPageBreak, HeadingParagraph)):
-                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE - 8 * mm))
                 story.append(_table_caption(block, styles, number, refs))
             story.append(_table_flowable(block, styles, refs))
             story.append(Spacer(1, 12))

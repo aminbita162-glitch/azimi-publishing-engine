@@ -243,18 +243,54 @@ def verify_document(project_root, document_dir) -> VerifyResult:
     if not pdf_path.is_file() or not manifest_path.is_file():
         raise ConfigError("no built PDF with a manifest was found; build the document first")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ConfigError("invalid manifest structure")
+    output = manifest.get("output")
+    recorded_inputs = manifest.get("inputs")
+    if not isinstance(output, dict) or not isinstance(recorded_inputs, dict):
+        raise ConfigError("invalid manifest structure")
+    import re
+    digest_pattern = re.compile(r"[0-9a-f]{64}\Z")
+    if (output.get("file") != file_name or
+            not isinstance(output.get("sha256"), str) or
+            not digest_pattern.fullmatch(output["sha256"]) or
+            not isinstance(output.get("bytes"), int) or isinstance(output.get("bytes"), bool) or
+            output["bytes"] < 0):
+        raise ConfigError("invalid manifest output")
+    if not recorded_inputs:
+        raise ConfigError("manifest has no inputs")
+    validated_inputs = []
+    for relative, expected in recorded_inputs.items():
+        if not isinstance(relative, str) or not isinstance(expected, str) or not digest_pattern.fullmatch(expected):
+            raise ConfigError("invalid manifest input entry")
+        from pathlib import PurePosixPath
+        parts = PurePosixPath(relative).parts
+        if (not parts or relative.startswith("/") or "\\" in relative or
+                any(part in (".", "..", "") for part in relative.split("/"))):
+            raise ConfigError("unsafe manifest input path")
+        if parts[0] == "brand":
+            if len(parts) < 3 or parts[1] != meta.brand:
+                raise ConfigError("unsafe manifest brand path")
+            base = root
+        else:
+            base = folder
+        try:
+            target = resolve_inside(base, relative)
+        except (ValueError, OSError) as exc:
+            raise ConfigError("unsafe manifest input path") from exc
+        validated_inputs.append((relative, expected, target))
     pdf = pdf_path.read_bytes()
     problems = []
-    if sha256_bytes(pdf) != manifest["output"]["sha256"]:
+    if len(pdf) != output["bytes"] or sha256_bytes(pdf) != output["sha256"]:
         problems.append("the PDF differs from the checksum in its manifest")
-    for relative, expected in manifest["inputs"].items():
-        base = root if relative.startswith("brand/") else folder
-        target = base / relative
+    for relative, expected, target in validated_inputs:
         if not target.is_file():
             problems.append(f"input missing: {relative}")
         elif sha256_file(target) != expected:
             problems.append(f"input changed since the build: {relative}")
     inputs = manifest.get("audit_inputs", {})
+    if not isinstance(inputs, dict) or not isinstance(manifest.get("audit"), dict) or not isinstance(manifest["audit"].get("exempt_pages"), list):
+        raise ConfigError("invalid manifest audit metadata")
     report = audit_pdf(
         pdf, meta, manifest["audit"]["exempt_pages"],
         min_image_dpi=inputs.get("min_image_dpi"),
