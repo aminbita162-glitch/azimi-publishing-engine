@@ -25,7 +25,7 @@
 | cli | engine/cli.py | deliver subcommand with draft/release modes | 129 |
 | gates | engine/gates/__init__.py | Placeholder stub (verify_release_package returns True) | 3 |
 
-### 1.2 Existing test files (all PASSING, 384 total)
+### 1.2 Existing test files (all PASSING, 390 total — 384 at WP1 + 6 P6 regression tests, commit dbc77b9)
 
 | Test file | Tests | Coverage |
 |-----------|-------|----------|
@@ -42,6 +42,7 @@
 | test_release_audit_ledger.py | 5 | Records exact event, replay rejected, public directory rejected, symlink rejected, invalid fields |
 | test_document_authenticity.py | 7 | Valid+digest, each field tampered, unknown/wrong key, bad signatures, bad fields, canonical+duplicate JSON, domain separation |
 | test_v052.py | 10 | Draft delivery, release disabled, delivery JSON, no overwrite, exit codes |
+| test_release_phase6_gaps.py | 6 | S12 concurrent race (Barrier(2), exactly one O_EXCL winner), S16 EACCES (real chmod 0o500) + EPERM (mocked errno=1), key rotation (revoked→rejected, active→accepted, old≠new) |
 
 ### 1.3 Release-mode fail-closed invariant (REQUIRED)
 
@@ -142,11 +143,12 @@ This is a **hard gate** — release mode raises before any filesystem operation.
 - Symlink swap (S38): source/dest/state/audit symlink rejection
 - Domain separation (S35): separate DOMAIN prefixes, tested
 
-### Identified gaps (presented for owner approval, NOT implemented):
-- **S12 (concurrency/race):** O_EXCL provides atomicity guarantee; no explicit concurrent-request test. Low risk — O_EXCL is kernel-level atomic guarantee.
-- **S16 (permission denied):** Not explicitly tested for EACCES/EPERM on file operations. Low risk — permission checks on directories are tested.
-- **Key rotation (lifecycle):** No test for rotating from one active key to another while preserving old-key rejection. The trust registry supports status:"revoked" but rotation (old key revoked, new key active) is not tested as a sequence.
-- **Stale timestamp / expiry:** No timestamp field in current schema. The contract v0.1 proposes clock skew and offline expiration policy as open decisions. **This requires owner approval per WP2 before implementing.**
+### Gap status after regression tests (commit dbc77b9, 390/390 pass):
+
+- **S12 (concurrency/race):** CLOSED by regression test. `test_release_phase6_gaps::ConcurrentRaceTests::test_exactly_one_concurrent_reservation_succeeds` — two threads synchronized on `threading.Barrier(2)` both call `reserve_approval` on the same approval ID; O_EXCL atomicity guarantees exactly one winner (the `.used` file is written) and exactly one loser (`ReplayError("already reserved")`). Asserts `len(winners) == 1` and `len(losers) == 1`.
+- **S16 (permission denied):** CLOSED by regression tests. `test_release_phase6_gaps::PermissionDeniedTests::test_eacces_from_os_open_raises_replay_error` — real EACCES via `chmod(0o500)` on a private directory (passes `st_mode & 0o077 == 0` privacy pre-check but denies `os.open(O_CREAT)` at the syscall level); `test_eperm_from_os_open_raises_replay_error` — mocked EPERM (errno=1, distinct from EACCES errno=13) via `patch("engine.release.replay.os.open", side_effect=PermissionError(1, ...))`. Both surface as `ReplayError("cannot reserve approval")` with no `.used` file created.
+- **Key rotation (lifecycle):** CLOSED by regression tests. `test_release_phase6_gaps::KeyRotationTests` — a two-key registry `{owner-1: {public_key: old, status: revoked}, owner-2: {public_key: new, status: active}}`; old key raises `ApprovalError("key not trusted or revoked")`, new key returns its bytes, `old != new`. Three tests: `test_revoked_old_key_rejected`, `test_active_new_key_accepted`, `test_rotation_old_fails_new_succeeds`.
+- **Stale timestamp / expiry:** OPEN — owner-decision-gated. No timestamp field in current schema. The contract v1.0 proposes clock skew and offline expiration policy as open decisions. **This requires owner approval per WP2 before implementing.** Not a vulnerability — deferred by design.
 
 ---
 
@@ -156,4 +158,4 @@ This is a **hard gate** — release mode raises before any filesystem operation.
 
 **Evidence:** `engine/tools_core.py:190` — `raise ConfigError("release temporarily disabled pending cryptographic owner authorization")`  
 **Test:** `test_v052.py` — `deliver_pdf(root, "courses/doc", "release")` raises  
-**Status:** PASSING (384/384 tests, release remains disabled)
+**Status:** PASSING (390/390 tests, release remains disabled)

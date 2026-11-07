@@ -63,16 +63,24 @@
 
 ---
 
-## Identified Gaps (Require Owner Approval Before Implementation)
+## Gap Closure Status
 
-| Gap | Risk Level | Description | Current Protection |
-|-----|-----------|-------------|-------------------|
-| Concurrent request test (S12) | Low | No explicit test for two simultaneous release attempts | O_EXCL provides kernel-level atomic guarantee |
-| Permission denied test (S16) | Low | No explicit EACCES/EPERM test on file operations | Directory permission checks are tested |
-| Key rotation sequence test | Low | No test for old-key-revoked + new-key-active sequence | Revocation (status:"revoked") is tested individually |
-| Timestamp/expiry field | N/A | Not in schema; requires contract amendment | N/A — UNIMPLEMENTED by design |
-| Clock skew policy | N/A | No timestamp; requires owner decision | N/A — UNIMPLEMENTED by design |
-| Pipeline→CLI connection | N/A | Not connected; requires activation gate | Release is hard-disabled |
+### Closed Gaps (Regression tests added — commit dbc77b9, 390/390 pass)
+
+| Gap | Risk Level | Description | Test Reference | Result |
+|-----|-----------|-------------|----------------|--------|
+| Concurrent request test (S12) | Low | Two simultaneous release attempts on the same approval ID | test_release_phase6_gaps::ConcurrentRaceTests::test_exactly_one_concurrent_reservation_succeeds — 2 threads on threading.Barrier(2), exactly one O_EXCL winner (.used file written), exactly one ReplayError("already reserved") loser | CLOSED — PASS |
+| Permission denied test (S16 EACCES) | Low | EACCES from os.open on a read-only private directory | test_release_phase6_gaps::PermissionDeniedTests::test_eacces_from_os_open_raises_replay_error — real syscall: chmod(0o500) passes st_mode & 0o077 privacy pre-check but denies os.open(O_CREAT), ReplayError("cannot reserve approval"), no .used file created | CLOSED — PASS |
+| Permission denied test (S16 EPERM) | Low | EPERM from os.open (errno=1, distinct from EACCES errno=13) | test_release_phase6_gaps::PermissionDeniedTests::test_eperm_from_os_open_raises_replay_error — mocked via patch("engine.release.replay.os.open", side_effect=PermissionError(1, ...)), ReplayError("cannot reserve approval"), no .used file created | CLOSED — PASS |
+| Key rotation sequence test | Low | Old key revoked + new key active in the same two-key registry | test_release_phase6_gaps::KeyRotationTests::test_revoked_old_key_rejected, ::test_active_new_key_accepted, ::test_rotation_old_fails_new_succeeds — registry {owner-1: {revoked}, owner-2: {active}}, old → ApprovalError("key not trusted or revoked"), new → accepted, old != new | CLOSED — PASS |
+
+### Open Gaps (Owner-decision-gated — deferred by design, NOT vulnerabilities)
+
+| Gap | Risk Level | Description | Status |
+|-----|-----------|-------------|--------|
+| Timestamp/expiry field | N/A | Not in schema; requires contract amendment | OPEN — owner-decision-gated, UNIMPLEMENTED by design |
+| Clock skew policy | N/A | No timestamp field; requires owner decision | OPEN — owner-decision-gated, UNIMPLEMENTED by design |
+| Pipeline→CLI connection | N/A | Not connected to CLI delivery path; requires activation gate | OPEN — owner-decision-gated, release is hard-disabled (ConfigError) |
 
 ---
 
@@ -87,3 +95,17 @@
 4. Approve removing the ConfigError guard in deliver_pdf
 
 **Without all four, release remains disabled. No test passage authorizes release.**
+
+### Current owner policy (November 2026)
+
+| Decision | Status |
+|----------|--------|
+| Repository visibility | PRIVATE (GitHub) — no public repository publication authorized |
+| Development status | DEVELOPMENT ONLY — no production deployment |
+| Release/delivery activation | HARD-DISABLED (ConfigError guard in deliver_pdf NOT removed) |
+| Pipeline→CLI connection | NOT connected (activation decision 3 NOT approved) |
+| ConfigError guard removal | NOT approved (activation decision 4 NOT approved) |
+| Activation decisions 1–4 | NONE approved |
+| Phase 7 | NOT authorized |
+
+Repository visibility (GitHub PRIVATE) is distinct from PDF delivery/release mode. A private repository does not authorize release activation; release remains hard-disabled regardless of repository visibility.
