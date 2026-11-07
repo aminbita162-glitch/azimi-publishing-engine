@@ -1,0 +1,615 @@
+AZIMI PUBLISHING ENGINE (APE)
+DEVELOPMENT MASTER PLAN — CONTROLLED PHASES 4–7
+Revision 3.0 | 2026-11-07 | English-only executable specification
+OWNER: Amin Azimi | TARGET EXECUTOR: Hermes (or explicitly authorized equivalent)
+STATE: CONTROLLED REVIEW DRAFT — owner must approve this revision before execution
+CANONICAL TARGET: repository-root DEVELOPMENT_MASTER_PLAN.txt
+
+=======================================================================
+00 | NON-NEGOTIABLE EXECUTOR CONTRACT — HIGHEST PRIORITY
+=======================================================================
+AUTHORIZATION IS PHASE-SCOPED. Reading this file never authorizes all phases.
+Accept only an owner command explicitly identifying PHASE 4, 5, 6, or 7.
+Run exactly that phase, on the existing working tree, and HARD STOP.
+Do not develop autonomous project agents, agent orchestration, or unrelated UI.
+This is a general-purpose commercial PDF engine, not a one-course renderer.
+Keep the current ReportLab-based pipeline unless the owner separately approves
+an architecture change. No speculative migration, new platform, or dependency.
+Never guess file paths, undocumented interfaces, requirements, or completion.
+Inspect before touching. Reuse verified existing capabilities; no duplication.
+No deletion, rename, history rewrite, git reset/clean, force push, destructive
+migration, credential exposure, or removal of user files. No silent weakening
+of audit rules, thresholds, tests, release security, or exemption criteria.
+Do not delete Bob/user-generated material unless an owner approval names the
+specific exact path; prior Phase 2 cleanup is NOT standing authorization.
+Do not claim visual inspection from PIL alone: pixel metrics != visual review.
+Never state '100% secure' or 'fully compliant' without independent evidence.
+No blanket git add -A. No commit of .env, credentials, .bob/, backups, previews,
+build outputs, caches, .DS_Store, private keys, or unrelated modifications.
+Do not publish a PDF artifact or enable production release without a separate
+explicit owner release approval; git push is not PDF release authorization.
+When blocked, produce a precise blocker/evidence report and HARD STOP.
+
+
+=======================================================================
+00A | EXECUTION STATE MACHINE AND AUTHORIZATION PROOF
+=======================================================================
+Allowed states: UNAUTHORIZED -> DISCOVERY -> BASELINE_VERIFIED ->
+IMPLEMENTING -> WP_VERIFIED -> LOCAL_COMMITTED -> FINAL_VALIDATION ->
+PUSHED_VERIFIED -> CLOSED. Any mandatory failure -> BLOCKED -> HARD STOP.
+Only an explicit owner phase command moves UNAUTHORIZED to DISCOVERY.
+This plan's existence, Git presence or earlier approval cannot activate a
+phase. Record exact command/approval and phase identifier in evidence.
+Never proceed from DISCOVERY if the agreed historical phase charter differs
+from this document; output a proposed delta and wait for owner approval.
+Never proceed from FINAL_VALIDATION to PUSHED_VERIFIED on UNKNOWN/PARTIAL.
+Use a separate authorized branch; never silently switch or create a branch.
+Do not commit or push if unrelated staged files cannot be separated safely.
+Do not change security posture merely to unblock a test or delivery.
+
+00B | HARD INVARIANTS — MUST HOLD THROUGH EVERY WORK PACKAGE
+- No loss of existing source, owner data, tests, artifacts or audit evidence.
+- No suppression/xfail/skip, exception broadening, threshold reduction or
+  fixture weakening to turn a failing test green without owner approval.
+- Every newly introduced exemption has a specific, testable structural
+  justification, and a negative test showing misuse is rejected.
+- A7 applies only to legitimately classified body pages; preserve the
+  >=87% policy and disclose the denominator and every excluded page.
+- PDF release mode remains disabled until a separate owner activation gate.
+- Never store signing private keys, API secrets, tokens or personal data in
+  tracked files, logs, test snapshots, screenshots or error messages.
+- Each committed change has an explicit requirement and regression evidence.
+- No automatic execution of a subsequent phase.
+
+=======================================================================
+01 | MISSION, BASELINE, AND SOURCE OF TRUTH
+=======================================================================
+Mission: advance the EXISTING engine through remaining phases:
+P4: PDF audit, standards, correctness and evidence.
+P5: images, vector diagrams, tables and rendering robustness.
+P6: release security, authenticity, authorization and provenance.
+P7: end-to-end integration, release readiness and final closure.
+These headings are recovered historical intent. The original verbatim seven-
+phase charter was not available for line-by-line verification; do not pretend
+that this document supersedes any stricter previously approved contract.
+Owner must approve any scope expansion or interpretation conflict.
+
+Reported checkpoint (must verify, not assume):
+P1 complete; P2 reportedly closed; P3 reportedly closed.
+P2 branch phase2-a7-validation; reported commit
+be7726be3b4440f9570f383cdc98577823e80c59.
+P2 reported: 321 tests PASS; A1–A16 PASS; A7 >=87% with 89.3%
+minimum measured non-exempt fill, 61-page PDF. These are historical
+claims; the actual checkout/remote/test results control.
+Previous phase 3 includes security tests and release-related work: avoid
+duplicating or overwriting it. Release may intentionally be fail-closed.
+
+Source precedence:
+1. Current explicit owner approvals and exact phase charter.
+2. Existing repository docs, ADRs, policies and security contracts.
+3. Current branch and source, tests, manifests and real artifacts.
+4. Earlier phase evidence (verified hashes and CI runs).
+5. Prior agent prose summaries (never sufficient alone).
+If an exact path, public interface, baseline, or authorization is absent,
+report UNKNOWN and STOP before making that change.
+
+=======================================================================
+02 | PRE-FLIGHT — REQUIRED ONCE PER AUTHORIZED PHASE
+=======================================================================
+READ-ONLY FIRST:
+- pwd; git rev-parse --show-toplevel; git branch --show-current;
+  git rev-parse HEAD; git status --porcelain=v1; git remote -v;
+  git branch -vv; git log -n 5 --oneline.
+- Locate actual architecture/docs, build, render, audit, QA, security,
+  release and tests. Do not assume a path exists from this document.
+- Read only affected sections of HANDBOOK, README, directive.txt, ADRs,
+  requirements, design tokens, relevant test contracts and source files.
+- Confirm expected base, prior phase commits, branch/upstream and
+  uncommitted owner work. Do not overwrite an existing dirty worktree.
+- Inventory actual tools, installed dependencies, CI and test commands.
+- Produce an impact matrix: requirement -> source path -> test -> evidence.
+- Establish current behavior with minimum targeted read-only checks.
+- Mark each proposed work item ALREADY DONE / DEFECT / MISSING / UNKNOWN.
+- Skip ALREADY DONE items after checking sufficient evidence.
+- Identify backward compatibility, API surface, persistence, provenance,
+  privacy, licensing, dependency and reproducibility risks.
+- Do not repeat whole-suite builds merely to gather the same evidence.
+- If the authorized branch is wrong, unrelated changes exist, or prior
+  evidence cannot be reconciled, STOP and request owner decision.
+
+SCOPE CHANGE CONTROL:
+No unapproved new features, project agents, platforms, major dependencies,
+public APIs, data formats or release pathways. Necessary defect fixes may
+touch a shared module ONLY when causally proven and tested. Document each
+cross-cutting exception before changing it. No artificial filler or
+unjustified A7 exemptions to force a PASS.
+
+=======================================================================
+03 | TRANSACTIONAL WORKFLOW AND GIT POLICY
+=======================================================================
+Each phase has discrete work packages (WP). Execute in dependency order.
+For EACH completed coherent WP:
+  1. Confirm precise paths and unchanged scope.
+  2. Implement smallest testable change.
+  3. Run focused positive, negative, boundary and regression tests.
+  4. Inspect git diff --check and actual patch; ensure no secrets.
+  5. Stage exact approved paths only; inspect git diff --cached.
+  6. Make a meaningful LOCAL commit with WP identifier and evidence.
+  7. Record commit SHA in phase log.
+Never commit intentionally broken work or make a meaningless commit per line.
+If tests fail, repair within scope before committing; if impossible, STOP.
+Commit continuously at logical milestones; do NOT bundle 20 unrelated tasks
+into one commit. Do not push after each WP unless owner explicitly requires.
+At PHASE END: full relevant regression + build/audit/visual QA + security,
+evidence review, then ONE push of phase branch. Verify upstream/remote SHA
+matches local HEAD and working tree has no unintended changes. HARD STOP.
+If final gate fails: NO PUSH; report local commits and blockers accurately.
+If no code change is needed, do not manufacture a commit. Report verified
+no-op and await owner direction.
+Commit/push permission for a phase does not authorize merge to main,
+tagging, artifact publication, changing default branch, or deployment.
+
+
+=======================================================================
+03A | GIT FAILURE, RECOVERY AND RECONCILIATION DECISION TABLE
+=======================================================================
+Condition -> required action (never improvise destructive recovery):
+- Dirty worktree before phase: identify owner/unrelated paths; if overlap,
+  BLOCKED; if cleanly separable, preserve and work only on approved paths.
+- Existing staged changes: inventory exact staged diff; do not include
+  unknown paths in any phase commit. If separation uncertain, BLOCKED.
+- Targeted test fails: repair only scoped defect; rerun targeted regression;
+  do not stage or commit a failing WP.
+- Commit hook fails: inspect hook result; fix approved issue, do not bypass.
+- Local commit succeeds, final gate fails: retain commits, NO PUSH; report
+  HEAD, commit list, failure, changed paths, and safe resumption point.
+- Remote advanced / non-fast-forward: fetch read-only, compare histories;
+  no force push, rebase or merge without owner approval.
+- Push fails / times out: read remote HEAD before retrying; if identical,
+  treat as already pushed; otherwise report failure and do not blind-retry.
+- Push succeeds but remote verification unavailable: REMOTE UNVERIFIED,
+  not CLOSED; provide exact verification command and HARD STOP.
+- CI fails/pending: distinguish local PASS from remote CI; if CI is a
+  mandatory gate, phase remains BLOCKED/PENDING until evidence exists.
+- Network or credentials unavailable: preserve local commits; no bypass.
+- No-op WP: record evidence of existing implementation; no empty commit.
+- Source conflict with another phase: preserve existing implementation;
+  STOP and ask owner rather than overwrite or expand scope.
+- Never use reset --hard, clean -fd, force push, destructive checkout,
+  automatic stash/drop, history rewrite, or branch deletion.
+
+03B | CHECKPOINT AND COMMIT QUALITY STANDARD
+=======================================================================
+Before each local commit: requirement ID, affected paths, behavior delta,
+positive and negative tests, exact exit codes, diff review, secret check,
+license/privacy check, and staged-file manifest. Commit only coherent WPs.
+After each commit: verify HEAD and committed path list; preserve evidence.
+At phase end: run the complete applicable suite AFTER the last change;
+rebuild affected PDFs AFTER the last change; audit those final bytes; visual
+QA the final rendered output; hash final bytes; review all commits in phase;
+then push once and verify remote SHA. A previously passing test does not
+substitute for testing the final tree. A local commit is not phase closure.
+
+=======================================================================
+04 | CROSS-CUTTING QUALITY GATES
+=======================================================================
+Q1 Functional: all existing relevant tests plus new phase tests PASS.
+Q2 Negative: malformed, adversarial, tampered and boundary cases PASS.
+Q3 Compatibility: existing CLI/API/document contracts retained unless
+   an explicit approved breaking change is specified.
+Q4 PDF correctness: where applicable A1–A16 PASS, including A7 >=87%
+   on every legitimately non-exempt page; no hidden failures or false PASS.
+Q5 Exemptions: each page maps to a provable structural cause; tests reject
+   forged, out-of-range, duplicate or overbroad exemptions.
+Q6 Visual: every changed PDF page reviewed at sufficient resolution by a
+   functioning visual inspection method; report exact coverage and errors.
+   PIL geometry, text extraction and file existence are supplementary.
+Q7 Reproducibility: fixed inputs/config yield expected deterministic
+   content and stable manifest semantics; document allowed nondeterminism.
+Q8 Security: fail-closed, least privilege, no secret leakage or bypass.
+Q9 Docs: architecture, usage, migration, changelog and tests updated only
+   for real changes; no speculative claims.
+Q10 Git: scoped commits, clean patch, excluded private/generated files,
+   remote SHA verified after authorized push.
+Mandatory gate UNKNOWN or FAIL => PHASE BLOCKED, not CLOSED.
+
+
+=======================================================================
+04A | REQUIREMENT-TO-EVIDENCE CONTRACT
+=======================================================================
+For every WP, create an evidence row with fields:
+REQ_ID | approved source | baseline commit | affected path/function |
+observed defect | intended invariant | positive fixture | negative fixture |
+boundary fixture | test command | exit code | result | artifact hash |
+reviewer method | commit SHA | unresolved risk.
+No fabricated test IDs, paths, performance targets or approvals. UNKNOWN is
+valid during discovery but not acceptable for a mandatory closure gate.
+When external tooling is unavailable, mark UNVERIFIED and stop rather than
+replace a human/vision inspection with an unproven equivalent.
+
+04B | VISUAL QA PROTOCOL — NO FALSE COVERAGE CLAIMS
+=======================================================================
+Record PDF SHA-256 and renderer version before inspection. Render every
+page with explicit resolution and deterministic page naming. Confirm page
+count, no missing images, and hash/identity of the source PDF. Inspect each
+page at readable resolution with actual visual viewing capability; record
+page ID, inspected method, legibility, clipping, overlapping objects,
+missing glyphs, image crop, table continuation, diagram edges, headers,
+footers, whitespace and page-flow continuity. Review risky pages at 100%
+zoom, not only tiny contact sheets. Contact sheets are navigation aids;
+they do not automatically prove detailed inspection of every page.
+Automated PIL geometry, text extraction and PDF parsers are supplementary
+checks, not a replacement for genuine visual inspection. If the vision
+backend fails, use a demonstrably functioning visual alternative or report
+PARTIAL and STOP. Distinguish 61/61 rendered from 61/61 visually inspected.
+For each defect: page, bounding region, root cause, minimal fix, regression
+fixture, rerender and reinspection. Final PDF hash must match QA evidence.
+
+04C | ANTI-GAMING / AUDIT ORACLE
+=======================================================================
+Use independently generated adversarial fixtures: decorative full-page
+background with empty substantive body; giant image masking absent text;
+white-on-white content; clipped glyphs; rotated and transformed objects;
+malformed page metadata; overlapping boxes; bogus exemptions; missing
+links; duplicate figure labels; table rows beyond crop box. Test that
+legitimate content passes and false-fill/false-PASS attempts fail. Do not
+change the audit oracle merely to match the expected sample output.
+
+=======================================================================
+05 | PHASE 4 — PDF AUDIT / STANDARDS / EVIDENCE
+=======================================================================
+INTENT: strengthen and validate the existing 16-check PDF audit system.
+NOT IN SCOPE: replatform renderer; alter content to fake occupancy; release.
+
+P4.WP1 Audit contract inventory
+- Locate A1–A16 implementations and documentation, source-to-result schema,
+  manifest generation, CLI return codes and current regression fixtures.
+- Build a matrix of exact inputs, pass/fail predicate, diagnostic fields,
+  false-positive and false-negative risks for each check.
+- Preserve the current 87% A7 threshold and verified geometric measurement
+  (text, painted shapes, embedded images) unless owner changes policy.
+- Confirm all issues are retained in machine-readable evidence, even if UI
+  summaries truncate display. Check counts and exit status agree.
+
+P4.WP2 Page geometry and layout invariants
+- Validate page dimensions/orientation and trim/margins as specified by
+  existing design contract; do not hardcode A4 for all future products.
+- Detect text/image/table/diagram overflow, clipping, off-page coordinates,
+  negative bounds, degenerate boxes and impossible page geometry.
+- Avoid counting backgrounds, watermarks or decorative rules as substantive
+  body fill. Test false-fill adversarial PDFs.
+- Verify measurement behavior for transformed content, nested objects,
+  vector graphics, image XObjects and edge cases supported by parser.
+- Check per-page classifications and structural exemptions; do not permit
+  exemptions that mask a failed substantive body page.
+
+P4.WP3 Structural and semantic integrity
+- Check outline/bookmark destinations, internal links and annotations.
+- Check figure/table numbering continuity and referenced destinations.
+- Validate text extraction and content order within supported guarantees.
+- Check font embedding/availability, glyph fallback, missing characters,
+  encoding and legibility. Do not assert full PDF/UA compliance solely
+  from extractability; distinguish tags/structure/reading order.
+- Check PDF metadata/XMP, producer/version, licensing/rights fields where
+  required by existing contract; do not insert invented legal statements.
+- Validate manifest/schema, checksums, file sizes, page counts and paths.
+
+P4.WP4 Robustness and adversarial verification
+- Fixtures: zero-page/invalid/truncated PDF, encrypted PDF, malformed
+  objects, missing fonts, broken links, duplicate labels, overflow,
+  empty/blank page, image-only content, misleading backgrounds,
+  invalid exemption sets, invalid manifests and path traversal.
+- Prove each negative fixture fails the correct check with complete issues
+  and deterministic nonzero CLI behavior; no crashes or silent PASS.
+- Bound resource use for oversized PDFs/objects; document supported limits.
+- Regression test original 61-page course PDF and at least one other
+  representative fixture if available; do not fabricate test documents
+  presented as production evidence.
+
+P4.WP5 Evidence and closure
+- Generate per-check PASS/FAIL/NOT-APPLICABLE with reason and location.
+- Compare against prior baselines without altering their historical record.
+- Validate all relevant QA, regression and security tests.
+- Full visual QA on any changed output. Commit each coherent WP locally.
+- Owner-approved phase-end push, verify remote SHA, HARD STOP.
+
+P4 EXIT: all mandatory audit invariants verified; no unexplained exemptions,
+no false PASS, full failure evidence, reproducible test log.
+
+=======================================================================
+06 | PHASE 5 — IMAGES / TABLES / VECTOR DIAGRAMS
+=======================================================================
+INTENT: robust, publication-quality rendering of visual content using
+existing design system and current ReportLab pipeline.
+NOT IN SCOPE: arbitrary content expansion, replacing rendering engine,
+new branding without approval, unrelated feature families.
+
+P5.WP1 Capability inventory and specification
+- Locate current image, table, diagram, caption, layout, font and asset code.
+- Map every supported content schema/Markdown construct to renderer.
+- Verify exact design tokens, page geometry, asset roots, fonts and licenses.
+- Record supported formats; do not silently add unsupported formats.
+
+P5.WP2 Image safety and quality
+- Validate file existence, sandboxed path resolution, permitted formats,
+  decode failures, corrupt/truncated files, huge dimensions, EXIF rotation,
+  transparency, color profiles and aspect ratio handling.
+- Prevent arbitrary filesystem reads via relative/absolute/symlink paths.
+- Preserve content without crop/distortion unless explicitly configured.
+- Keep captions, labels and alt-text/semantics where supported; document
+  accessibility limitations without claiming unproven compliance.
+- Test missing/invalid image placeholders only if existing policy allows;
+  mandatory asset failures must fail visibly and correctly.
+
+P5.WP3 Table engine
+- Validate column sizing, header repetition, row splitting, cell padding,
+  wrapping, overflow, nested formatting, captions and numbering.
+- Test long text, Unicode, empty cells, merged cells if supported, wide
+  tables, multi-page tables, orphan headers and page boundary behavior.
+- No clipped cells, unreadable shrink-to-fit or silently dropped rows.
+- Preserve deterministic ordering and content-to-PDF correspondence.
+
+P5.WP4 Diagram engine
+- Inspect existing vector drawing geometry and diagram layout algorithms.
+- Test nodes/edges/labels, long labels, cycles where supported, scaling,
+  minimum legible font, page-fit, arrows and connector collisions.
+- Prefer vector preservation; rasterization only if contract permits.
+- Reject impossible layouts explicitly rather than hiding content.
+- Verify no content collision with headings, captions, margins or footer.
+
+P5.WP5 Composition and visual regression
+- Test image+table+diagram adjacency, keepWithNext, page breaks, widow/
+  orphan rules, captions and chapter boundaries with real content.
+- Check visual QA on every changed page and representative edge fixtures.
+- Confirm A1–A16 and A7 >=87% remain valid without artificial filler or
+  broad exemptions. Do not force page count to remain 61 after legitimate
+  content changes; explain any authorized change.
+- Measure performance/memory on bounded representative fixtures.
+- Commit coherent WPs locally, final tests/evidence, push, remote verify,
+  HARD STOP.
+
+P5 EXIT: no clipped/missing/distorted supported visual content; validated
+multi-page tables and diagrams; complete regression and visual evidence.
+
+=======================================================================
+07 | PHASE 6 — RELEASE SECURITY / AUTHENTICITY / PROVENANCE
+=======================================================================
+INTENT: strengthen the existing release-security design and implement
+only the owner-approved release authorization contract.
+CRITICAL: current release mode may be intentionally HARD-DISABLED.
+Never enable release based solely on completion of tests or this plan.
+Owner must separately approve cryptographic design, trust model, key
+management, activation criteria and any production release.
+
+P6.WP1 Threat model and current-state audit
+- Inventory release_security.py, tools_core.py, CLI, approvals, manifest,
+  hashing, delivery and existing Ed25519 tests without assuming status.
+- Identify assets, principals, trust boundaries, attackers, failure modes,
+  filesystem attacks, replay, rollback and substitution threats.
+- Identify which controls already exist; avoid implementing duplicates.
+- Record release-mode fail-closed behavior as a required invariant.
+
+P6.WP2 Trust and authorization specification
+- Specify (for owner approval) signed payload canonicalization, artifact
+  digest binding, signer identity, trusted public-key distribution,
+  signature verification, versioning, context/domain separation,
+  expiry/replay policy, key rotation/revocation and audit evidence.
+- Do not invent approval file format, key storage, signer authority or
+  expiration semantics. Block implementation until contract is approved.
+- Private signing keys must never enter repository, logs or PDF bundles.
+- Verify approval is bound to exact immutable artifact hash and release
+  destination, not a mutable path or unauthenticated filename.
+
+P6.WP3 Input and delivery hardening
+- Defend against traversal, symlink races, TOCTOU, path normalization,
+  malformed metadata, digest spoofing, tampered manifests and outputs.
+- Fail closed on missing/malformed/expired/incorrect signatures, unknown
+  keys, changed artifacts, unauthorized destinations and missing evidence.
+- Preserve draft mode independently; no accidental release fallback.
+- Never bypass security gates for convenience or test green status.
+
+P6.WP4 Adversarial tests
+- Positive authorized path only under approved, isolated test fixtures.
+- Negative: bit-flipped PDF/manifest/signature, wrong signer/key, forged
+  approval, replay, duplicate nonce, stale timestamp if specified,
+  substituted destination, truncated signature, corrupt encoding,
+  empty/oversized fields, symlink swap, malformed path and rollback.
+- Boundary: max lengths, clock skew if contract specifies, deterministic
+  canonical serialization, concurrent requests and crash recovery.
+- Regression: original fail-closed release mode, draft delivery, CLI exit
+  codes, audit evidence and all previously passing tests.
+- No tests may contain actual production private keys or credentials.
+
+P6.WP5 Controlled activation decision
+- Produce security assurance matrix: threat -> control -> negative test.
+- Owner signs off on activation separately. Without this, release remains
+  disabled even if implementation is ready.
+- Commit each verified WP locally; phase-end security/full suite; push
+  source branch only when gates PASS; remote verify; HARD STOP.
+
+P6 EXIT: documented, independently testable security posture and no
+unauthorized release-mode enablement. Activation is a separate owner gate.
+
+=======================================================================
+08 | PHASE 7 — END-TO-END PRODUCT INTEGRATION / FINAL RELEASE
+=======================================================================
+INTENT: close the complete general-purpose PDF engine after all earlier
+phases have evidence-backed closure. No new feature invention.
+
+P7.WP1 Prerequisite attestation
+- Verify P1–P6 source commits, remote SHAs, test/QA evidence, unresolved
+  blockers and owner decisions. Never rely on verbal completion alone.
+- Reconcile README, HANDBOOK, ADRs, CHANGELOG, TEST_LOG and release docs.
+- Freeze approved scope and record supported/unsupported capabilities.
+
+P7.WP2 One-command lifecycle verification
+- From a clean, isolated checkout/environment, install only documented
+  dependencies and run existing supported CLI from inputs to output.
+- Exercise valid and invalid inputs, build, render, audit, manifest,
+  preview, draft delivery, verification and approved release behavior.
+- Validate CLI exit codes, idempotency, atomic output handling, error
+  reporting, reproducibility and interrupted-run recovery.
+- Never enable production delivery without P6 owner release authorization.
+
+P7.WP3 Cross-product integration
+- Exercise representative real content beyond Session 01 to demonstrate
+  general-purpose behavior; use existing approved fixtures or ask owner.
+- Validate fonts, images, diagrams, tables, bookmarks, rights/metadata,
+  structured content, multilingual constraints only if officially supported.
+- Test large/complex cases within documented resource limits.
+- Compare outputs with golden baselines; explain approved differences.
+
+P7.WP4 Final assurance
+- Run full unit/integration/regression/security/adversarial suite and
+  reproduce A1–A16 including A7 >=87% on applicable pages.
+- Perform complete visual inspection for each changed final PDF, logging
+  page IDs, method, resolution, defects and fixes.
+- Verify no half-empty substantive pages, clipping, overflow, missing
+  content, broken links or unjustified exemptions.
+- Inspect license/attribution, dependency licenses, version, provenance,
+  secret scanning, SBOM only if approved tooling already exists, and CI.
+- Distinguish tested guarantees from aspirational PDF/A, PDF/UA and
+  accessibility claims. Do not claim certification without actual proof.
+
+P7.WP5 Delivery and retirement
+- Produce final release candidate manifest, evidence index, reproducible
+  commands, SHA-256, version/changelog and known limitations.
+- Source commit at each coherent WP; final push only after all gates pass.
+- Verify remote SHA and report exact remaining release/merge approvals.
+- Do not merge, tag, publish artifacts, or activate delivery absent
+  separately explicit authorization.
+- HARD STOP. Do not self-delete this plan or rewrite it to two lines.
+- After owner confirms project final closure, owner may separately
+  authorize replacing this file with the two-line historical notice.
+
+P7 EXIT: end-to-end evidence-backed engine readiness, no unresolved
+mandatory blockers, verified source synchronization, owner-approved
+release decisions explicitly distinguished from development completion.
+
+
+=======================================================================
+08A | PHASE DEPENDENCY GRAPH AND GO/NO-GO RULES
+=======================================================================
+P4 -> P5 -> P6 -> P7 is the default execution sequence, subject to the
+original owner-approved charter. P4 owns audit predicates and evidence;
+P5 consumes them to validate renderers; P6 protects artifact authorization;
+P7 verifies integrated behavior. P5 cannot weaken P4 checks. P6 cannot
+activate production release on its own. P7 cannot claim release readiness
+when P6 activation remains pending; instead report development readiness
+and explicitly separate release authorization.
+Prerequisite for each phase: previous phase source/remote commit, evidence,
+mandatory tests and owner approval to start the next phase. If earlier
+phase closure is unverified, STOP and report missing proof, do not rerun
+all previous work reflexively.
+
+08B | NONFUNCTIONAL ACCEPTANCE RULES
+=======================================================================
+Performance: measure representative baseline and after-change CPU, peak
+memory, wall-clock, page count and output size with same inputs/environment.
+Do not invent absolute SLA; regression budget requires owner-approved value.
+Reliability: interrupted writes leave no falsely verified final artifact;
+recovery is idempotent or fails explicitly without deleting owner files.
+Portability: test only documented OS/Python support matrix, no assumptions.
+Dependencies: lock/pin per existing project policy; record hashes/versions;
+new runtime dependency requires explicit owner approval and license review.
+Accessibility: distinguish actual tagged-PDF structure and verified reading
+order from mere extracted text. No unearned PDF/UA or PDF/A certification.
+Privacy: generated logs, manifests and previews must not leak secrets or
+unapproved personal content. Supply sanitized, minimal QA evidence.
+
+08C | PHASE EXIT CHECKLIST — EACH ITEM EVIDENCE-BACKED
+=======================================================================
+1 Scope exact, no unrelated paths; 2 requirements traceable; 3 no hidden
+failed tests; 4 targeted and final regressions pass; 5 negative/security
+cases pass; 6 PDF audit and exemptions valid; 7 visual coverage explicit;
+8 docs accurate; 9 source diff reviewed; 10 secret scan clean; 11 local
+commits coherent; 12 remote branch SHA verified; 13 CI status explicit;
+14 release mode unchanged unless separately authorized; 15 blockers none;
+16 final report and HARD STOP. Any mandatory item FAIL/UNKNOWN => BLOCKED.
+
+=======================================================================
+09 | SCENARIO AND TEST-DESIGN MATRIX — ALL PHASES
+=======================================================================
+For every changed component, derive and implement tests for:
+S01 normal input; S02 missing input; S03 malformed input;
+S04 boundary minimum; S05 boundary maximum; S06 duplicate records;
+S07 Unicode/glyph edge; S08 large but supported payload;
+S09 malicious traversal/symlink; S10 corrupt artifact;
+S11 interrupted write; S12 concurrency/race where relevant;
+S13 tampered metadata; S14 backward compatibility;
+S15 deterministic rerun; S16 permission denied;
+S17 unknown/unsupported feature; S18 invalid exemption;
+S19 silent false-PASS attempt; S20 stale/forged approval;
+S21 dependency unavailable; S22 CI vs local environment divergence;
+S23 fake visual QA claim; S24 incomplete PDF output; S25 Git push timeout;
+S26 remote branch diverged; S27 partial local commit; S28 forged evidence;
+S29 unsupported PDF feature; S30 malicious asset decompression bomb;
+S31 duplicate manifest entry; S32 approval signature wrong context;
+S33 unauthorized release mode; S34 renderer crash mid-write;
+S35 Unicode bidi/RTL if supported; S36 font missing or unlicensed;
+S37 giant background artificially inflating A7; S38 symlink swap race;
+S39 accidental staging of .bob/backups/secrets; S40 stale golden baseline.
+Record N/A with reason. Never mark PASS without executing evidence.
+Test cases must map to actual contracts, not invented behaviors.
+
+=======================================================================
+10 | REPORTING CONTRACT — MACHINE-REVIEWABLE, OWNER-READABLE
+=======================================================================
+PHASE ID / exact approved scope / branch / base SHA / current HEAD
+Verified already-done inventory (with evidence)
+Work packages: path, change, targeted test, commit SHA
+Requirements traceability: requirement -> implementation -> test -> result
+Audit: A1–A16, threshold, minimum fill, denominator, exemptions, issues
+Visual QA: pages rendered, pages actually viewed, method, defects, repairs
+Security: threat matrix, negative results, release fail-closed status
+Full test command, exit code, passed/failed/skipped/warnings
+Artifact path, page count, SHA-256, reproducibility observations
+git diff --check, staged paths, exclusions, secrets check
+Push outcome, remote SHA vs local SHA, branch protection/CI status
+PASS / BLOCKED / UNKNOWN with explicit evidence, never guess
+Owner decisions still needed and exactly ONE next action
+FINAL LINE: HARD STOP — WAIT FOR OWNER
+
+=======================================================================
+11 | EVIDENCE QUALITY AND FAILURE POLICY
+=======================================================================
+Evidence ranks: actual reproducible result > test output > verified
+manifest/commit > documented review > prior agent claim.
+If tool backend cannot visually inspect, report PARTIAL, not full PASS.
+If network/remote cannot be reached, report REMOTE UNVERIFIED.
+If CI is pending, report PENDING, not PASS.
+If an unrelated failure exists, preserve it and report impact; do not
+silently fix unrelated scope.
+If a test or security gate is not executable, report BLOCKED and STOP.
+No automatic next-phase progression, regardless of apparent success.
+No owner approval inferred from this document alone.
+
+=======================================================================
+12 | PROJECT-END TWO-LINE RETIREMENT — FUTURE OWNER ACTION ONLY
+=======================================================================
+After explicit owner authorization following Phase 7 final closure,
+replace this plan's content with exactly:
+"This file served as the temporary development execution plan for APE."
+"Development is complete; historical execution instructions are retired."
+Do not delete the file; preserve Git history.
+
+=======================================================================
+13 | AUTHORING INTEGRITY NOTE
+=======================================================================
+This revision strengthens the known historical phase headings into a detailed
+engineering PROPOSAL, not a claim of line-by-line reproduction of the
+original seven-phase agreement. Exact code paths, tool capabilities,
+release authority, performance thresholds and approved new interfaces
+must be reconciled against the current repository before execution.
+Any contradiction requires owner resolution. Owner approval of this
+revision and an explicit single-phase invocation are both required.
+
+=======================================================================
+14 | FINAL ACCEPTANCE NOTICE — DO NOT MISREPRESENT CERTAINTY
+=======================================================================
+This plan is not itself evidence that the repository matches its assumptions.
+The original verbatim four-phase charter and live working tree have not been
+independently inspected in this document-authoring session. Before any
+execution, Hermes must reconcile actual repo state and obtain owner approval
+for any difference. This is a strict constraint, not permission to improvise.
+END OF CONTROLLED DEVELOPMENT MASTER PLAN REVISION 3.0

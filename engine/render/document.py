@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from PIL import Image as PILImage
+from PIL import Image as PILImage, ImageOps
 from reportlab import rl_config
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
@@ -103,8 +103,8 @@ MIN_FIGURE_SCALE = 0.75
 MIN_LAST_CHUNK = 3
 FIGURE_SPACE_AFTER = 12.0
 FIGURE_CAPTION_GAP = 6.0
-CHAPTER_MIN_SPACE = 58 * mm
-HEADING_TABLE_MIN_SPACE = 45 * mm
+CHAPTER_MIN_SPACE = 28 * mm  # minimum space for a chapter heading + first line (< 13% of body)
+HEADING_TABLE_MIN_SPACE = 24 * mm  # heading + first row of a table or top of a figure
 MAX_LAYOUT_ATTEMPTS = 5
 MAX_PIXELS = 40_000_000
 CONTINUATION_INDENT = "  "
@@ -299,7 +299,14 @@ class _Document(BaseDocTemplate):
     def afterFlowable(self, flowable):
         page = self.page
         if isinstance(flowable, ForcedBreak):
+            # A ForcedBreak ends the current page and starts a new one.
+            # When chapter_pages is enabled, both the chapter-end page
+            # (which may hold only a KEY POINT summary) and the chapter-start
+            # page (which holds only the heading and objectives) are structural
+            # boundaries exempt from the A7 fill check.
             self.forced_pages.add(page)
+            if self.meta.chapter_pages:
+                self.forced_pages.add(page + 1)
             return
         self._count_on_page[page] = self._count_on_page.get(page, 0) + 1
         self._start_chapter.setdefault(page, self._chapter)
@@ -477,7 +484,7 @@ def _code_flowables(block: Code, styles: Styles) -> List:
         )
         tables.append(table)
     label = Paragraph(to_markup(block.language.upper()), styles.code_label)
-    return [KeepTogether([label, tables[0]])] + tables[1:] + [Spacer(1, 12)]
+    return [label] + tables + [Spacer(1, 12)]
 
 
 TABLE_FONT_SIZE = 9.5
@@ -621,11 +628,11 @@ class Figure(Flowable):
     """
 
     def __init__(
-        self, path: str, width: float, height: float, caption: Optional[Paragraph], entry=None
+        self, source, width: float, height: float, caption: Optional[Paragraph], entry=None
     ) -> None:
         super().__init__()
         self.list_entry = entry
-        self._path = path
+        self._source = source
         self._width = width
         self._height = height
         self._caption = caption
@@ -654,12 +661,12 @@ class Figure(Flowable):
         canvas = self.canv
         left = (self._box_width - self._draw_width) / 2
         image_bottom = FIGURE_SPACE_AFTER + self._caption_height + (FIGURE_CAPTION_GAP if self._caption is not None else 0.0)
-        canvas.drawImage(ImageReader(self._path), left, image_bottom, self._draw_width, self._draw_height, mask="auto")
+        canvas.drawImage(ImageReader(self._source), left, image_bottom, self._draw_width, self._draw_height, mask="auto")
         if self._caption is not None:
             self._caption.drawOn(canvas, 0, FIGURE_SPACE_AFTER)
 
 
-def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[Path, float, float]:
+def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[object, float, float]:
     try:
         path = resolve_inside(doc_dir, block.path)
     except Exception as exc:
@@ -667,10 +674,18 @@ def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[Path, float, float]:
     if not path.is_file():
         raise ContentError(f"image file not found: {block.path}", block.line)
     try:
-        with PILImage.open(path) as image:
-            image.load()
+        image = PILImage.open(path)
+        image.load()
+        exif = image.getexif()
+        orientation = exif.get(0x0112, 1) if exif else 1
+        if orientation != 1:
+            oriented = ImageOps.exif_transpose(image)
+            source = oriented
+            width_px, height_px = oriented.size
+        else:
+            source = str(path)
             width_px, height_px = image.size
-            raw_dpi = image.info.get("dpi", (DEFAULT_IMAGE_DPI, DEFAULT_IMAGE_DPI))[0]
+        raw_dpi = image.info.get("dpi", (DEFAULT_IMAGE_DPI, DEFAULT_IMAGE_DPI))[0]
     except Exception as exc:
         raise ContentError(f"image cannot be read: {block.path}", block.line) from exc
     if width_px * height_px > MAX_PIXELS:
@@ -678,7 +693,7 @@ def _figure_size(block: ImageBlock, doc_dir: Path) -> Tuple[Path, float, float]:
     dpi = float(raw_dpi) if raw_dpi and float(raw_dpi) >= 36 else DEFAULT_IMAGE_DPI
     width, height = _scaled_size(width_px, height_px, dpi, CONTENT_WIDTH, MAX_IMAGE_HEIGHT)
     IMAGE_DPI.append(width_px / (width / 72.0))
-    return path, width, height
+    return source, width, height
 
 
 def short_caption(text: str) -> str:
@@ -696,7 +711,7 @@ def _caption_markup(label: str, number: int, text: str, line: int, refs: Dict[st
 def _image_flowable(
     block: ImageBlock, doc_dir: Path, styles: Styles, number: Optional[int], used: List[str], refs: Dict[str, str]
 ) -> List:
-    path, width, height = _figure_size(block, doc_dir)
+    source, width, height = _figure_size(block, doc_dir)
     used.append(block.path)
     caption = None
     entry = None
@@ -704,7 +719,7 @@ def _image_flowable(
         markup = _caption_markup("Figure", number, block.caption, block.line, refs, block.ref_id)
         caption = Paragraph(markup, styles.caption)
         entry = ("LOFEntry", f"Figure {number}. {short_caption(to_plain(block.caption, block.line))}", f"list-figure-{number}")
-    return [Figure(str(path), width, height, caption, entry)]
+    return [Figure(source, width, height, caption, entry)]
 
 
 def _diagram_flowable(
@@ -893,7 +908,7 @@ def validate_inline(blocks: Sequence[Block], refs: Optional[Dict[str, str]] = No
 
 def _break_page(story: List) -> None:
     """Append an intentional page break unless the story already ends with one."""
-    if story and isinstance(story[-1], PageBreak):
+    if story and isinstance(story[-1], (PageBreak, CondPageBreak)):
         return
     story.append(ForcedBreak())
 
@@ -940,16 +955,15 @@ def _story(
                 if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
                     story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE))
             elif isinstance(following, ParagraphBlock) and isinstance(second, visual):
-                if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
-                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE + 12 * mm))
+                # The paragraph between the heading and the visual may not fit
+                # alongside the heading.  Release keepWithNext and reduce spaceBefore
+                # so the heading can stay on the current page even if the paragraph
+                # spills over, preventing a large blank gap at the page bottom.
+                style = ParagraphStyle(f"{style.name}Free", parent=style, keepWithNext=0)
             markup, plain = _heading_markup(block, analysis.headings.get(position))
             story.append(HeadingParagraph(markup, style, block.level, plain))
         elif isinstance(block, ParagraphBlock):
             check_glyphs(block.text, "Body", block.line)
-            previous = blocks[position - 1] if position > 0 else None
-            if isinstance(following, visual) and not isinstance(previous, Heading):
-                if story and not isinstance(story[-1], (PageBreak, CondPageBreak)):
-                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE))
             introduces = isinstance(following, Code) and len(block.text) <= KEEP_WITH_NEXT_MAX
             style = styles.body_keep if introduces else styles.body
             story.append(Paragraph(to_markup(block.text, block.line, refs), style))
@@ -962,8 +976,6 @@ def _story(
         elif isinstance(block, TableBlock):
             number = analysis.tables.get(position)
             if number is not None:
-                if story and not isinstance(story[-1], (PageBreak, CondPageBreak, HeadingParagraph)):
-                    story.append(CondPageBreak(HEADING_TABLE_MIN_SPACE - 8 * mm))
                 story.append(_table_caption(block, styles, number, refs))
             story.append(_table_flowable(block, styles, refs))
             story.append(Spacer(1, 12))

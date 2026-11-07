@@ -171,18 +171,18 @@ def build_styles(brand: Brand) -> Styles:
     )
     h2 = ParagraphStyle(
         "H2", parent=body, fontName="Body-Bold", fontSize=17, leading=22, textColor=primary,
-        spaceBefore=50, spaceAfter=7, keepWithNext=1,
+        spaceBefore=28, spaceAfter=7, keepWithNext=1,
     )
     h3 = ParagraphStyle(
         "H3", parent=body, fontName="Body-Bold", fontSize=13, leading=18, textColor=TEXT,
-        spaceBefore=52, spaceAfter=5, keepWithNext=1,
+        spaceBefore=28, spaceAfter=5, keepWithNext=1,
     )
     code = ParagraphStyle(
         "Code", fontName="Mono", fontSize=CODE_SIZE, leading=CODE_LEADING, textColor=TEXT,
     )
     code_label = ParagraphStyle(
         "CodeLabel", fontName="Mono-Bold", fontSize=8, leading=10.5, textColor=accent_text,
-        spaceBefore=50, spaceAfter=5, keepWithNext=1,
+        spaceBefore=18, spaceAfter=5, keepWithNext=1,
     )
     code_number = ParagraphStyle(
         "CodeNumber", fontName="Mono", fontSize=CODE_SIZE, leading=CODE_LEADING, textColor=MUTED,
@@ -193,7 +193,7 @@ def build_styles(brand: Brand) -> Styles:
     )
     table_caption = ParagraphStyle(
         "TableCaption", parent=body, fontName="Body-Bold", fontSize=9.5, leading=12.5, textColor=primary,
-        alignment=TA_LEFT, spaceBefore=50, spaceAfter=3,
+        alignment=TA_LEFT, spaceBefore=24, spaceAfter=3,
     )
     list_entry = ParagraphStyle(
         "ListEntry", parent=body, fontSize=10, leading=14.7, spaceBefore=5, spaceAfter=3, textColor=TEXT,

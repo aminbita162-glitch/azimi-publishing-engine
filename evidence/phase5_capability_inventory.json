@@ -1,0 +1,233 @@
+{
+  "phase": "P5",
+  "description": "Images, tables, vector diagrams, and rendering robustness",
+  "branch": "phase2-a7-validation",
+  "base_sha": "05cde52",
+  "wp1_capability_inventory": {
+    "content_constructs_to_renderer": {
+      "Heading": {
+        "parser": "engine/build/parser.py:Heading",
+        "renderer": "engine/render/document.py:HeadingParagraph",
+        "levels": "1-3",
+        "tested": true,
+        "test": "engine/tests/test_parser.py:ParserTests, engine/tests/test_render.py:RenderTests"
+      },
+      "Paragraph": {
+        "parser": "engine/build/parser.py:Paragraph",
+        "renderer": "engine/render/document.py:Paragraph via to_markup",
+        "tested": true,
+        "test": "engine/tests/test_parser.py, engine/tests/test_inline.py"
+      },
+      "BulletList": {
+        "parser": "engine/build/parser.py:BulletList",
+        "renderer": "engine/render/document.py:_list_flowable (bullet)",
+        "tested": true,
+        "test": "engine/tests/test_parser.py:test_bullet_and_numbered_lists"
+      },
+      "NumberedList": {
+        "parser": "engine/build/parser.py:NumberedList",
+        "renderer": "engine/render/document.py:_list_flowable (numbered)",
+        "tested": true,
+        "test": "engine/tests/test_parser.py:test_bullet_and_numbered_lists"
+      },
+      "Code": {
+        "parser": "engine/build/parser.py:Code",
+        "renderer": "engine/render/document.py:_code_flowables (highlight, line numbers, wrapping)",
+        "tested": true,
+        "test": "engine/tests/test_parser.py, engine/tests/test_render.py:LayoutTests"
+      },
+      "Table": {
+        "parser": "engine/build/parser.py:Table, _parse_table, TABLE: caption",
+        "renderer": "engine/render/document.py:_table_flowable, _column_widths, _table_caption",
+        "features": ["column_sizing", "header_repetition (repeatRows=1)", "row_splitting", "cell_padding", "wrapping", "overflow", "nested_formatting", "captions", "numbering"],
+        "tested": true,
+        "test": "engine/tests/test_parser.py, engine/tests/test_render.py:LayoutTests:test_table_columns_never_split_a_word"
+      },
+      "Image": {
+        "parser": "engine/build/parser.py:_parse_image (IMG: path | alt | caption | id)",
+        "renderer": "engine/render/document.py:_image_flowable, _figure_size, Figure",
+        "path_safety": "resolve_inside (rejects absolute, parent, symlink), parser rejects non-PNG/JPEG",
+        "features": ["file_existence", "permitted_formats", "decode_failures", "huge_dimensions (MAX_PIXELS=40M)", "transparency (mask=auto)", "aspect_ratio_preservation"],
+        "tested": true,
+        "test": "engine/tests/test_parser.py:test_image_path_rules, test_render.py:test_missing_image_is_rejected, test_paths.py"
+      },
+      "Diagram": {
+        "parser": "engine/build/parser.py:Diagram, engine/build/diagram_spec.py:parse_diagram",
+        "renderer": "engine/render/diagram.py:DiagramFlowable, build_layout",
+        "kinds": ["flow", "sequence", "layers"],
+        "features": ["vector_drawing", "node_edge_labels", "long_label_wrapping", "cycles_back_edges", "scaling (MIN_DIAGRAM_SCALE=0.78)", "page_fit (MAX_DIAGRAM_HEIGHT=72%)", "arrows", "crossing_minimization"],
+        "tested": true,
+        "test": "engine/tests/test_render.py (diagram in CONTENT fixture)"
+      },
+      "Callout": {
+        "parser": "engine/build/parser.py:Callout",
+        "renderer": "engine/render/document.py:_callout_flowable",
+        "kinds": ["NOTE", "WARNING", "TIP", "KEY", "CHECKPOINT", "OBJECTIVES", "EXAMPLE", "PITFALL"],
+        "tested": true,
+        "test": "engine/tests/test_parser.py:test_callouts, test_render.py:FeatureTests:test_callout_labels_and_line_numbers"
+      },
+      "PageBreak": {
+        "parser": "engine/build/parser.py:PageBreak",
+        "renderer": "engine/render/document.py:_break_page (ForcedBreak)",
+        "tested": true,
+        "test": "engine/tests/test_parser.py:test_page_break, test_render.py:test_consecutive_page_breaks_do_not_create_blank_pages"
+      },
+      "CrossReference": {
+        "parser": "engine/render/inline.py:reference_ids, to_markup [[id]]",
+        "renderer": "engine/render/document.py:analyze, validate_inline",
+        "tested": true,
+        "test": "engine/tests/test_inline.py"
+      }
+    },
+    "design_tokens": {
+      "source": "design-system/tokens.yaml",
+      "loader": "engine/render/styles.py:_load_design_tokens",
+      "version": "1.0",
+      "groups": ["spacing", "typography", "color"]
+    },
+    "page_geometry": {
+      "format": "A4 portrait (595.27 x 841.89 pt)",
+      "margins": {"left": "22mm", "right": "22mm", "top": "26mm", "bottom": "24mm"},
+      "source": "engine/render/styles.py"
+    },
+    "asset_roots": {
+      "images": "courses/<doc>/assets/ (resolved via resolve_inside)",
+      "fonts": "design-system/fonts/",
+      "brand": "brand/<name>/"
+    },
+    "fonts": {
+      "body": "Carlito (regular, bold, italic, bold-italic)",
+      "mono": "Liberation Mono (regular, bold)",
+      "verification": "SHA256SUMS checksum verification before every build",
+      "license": "SIL Open Font License 1.1",
+      "notices": "THIRD_PARTY_NOTICES.md"
+    },
+    "supported_formats": {
+      "images": ["PNG", "JPEG"],
+      "diagrams": ["flow", "sequence", "layers"],
+      "code_highlighting": ["python", "typescript", "ts", "js", "shell", "sh", "bash", "sql", "json", "yaml"]
+    },
+    "audit_checks": {
+      "A1": "Every page carries extractable text",
+      "A2": "All fonts are embedded",
+      "A3": "Metadata and document language",
+      "A4": "Outline entries point to their headings",
+      "A5": "Links are safe and complete",
+      "A6": "Every page is A4",
+      "A7": "Body pages filled to at least 87%",
+      "A8": "File size is reasonable",
+      "A9": "Internal links land on a page",
+      "A10": "Figure and table numbers are continuous",
+      "A11": "Smallest text is at least 7.5 pt",
+      "A12": "Raster images have at least 140 dpi",
+      "A13": "Text contrast is at least 4.5:1",
+      "A14": "No active or embedded content",
+      "A15": "Metadata does not leak local paths",
+      "A16": "Text extracts cleanly"
+    },
+    "baseline": {
+      "tests": 345,
+      "test_status": "all pass",
+      "build_exit": 0,
+      "branch": "phase2-a7-validation",
+      "head": "05cde52"
+    }
+  },
+  "wp2_image_safety": {
+    "status_by_item": {
+      "file_existence": "ALREADY_DONE (test_render.py:test_missing_image_is_rejected, _figure_size:is_file check)",
+      "sandboxed_path_resolution": "ALREADY_DONE (test_paths.py, resolve_inside rejects absolute/parent/symlink, parser rejects non-relative)",
+      "permitted_formats": "ALREADY_DONE (test_parser.py:test_image_path_rules, _parse_image rejects non-PNG/JPEG)",
+      "decode_failures_corrupt_truncated": "ALREADY_DONE in code (_figure_size catches PIL exceptions), MISSING explicit test",
+      "huge_dimensions": "ALREADY_DONE in code (MAX_PIXELS=40M check), MISSING explicit test",
+      "exif_rotation": "DEFECT (image.size returns raw dimensions, EXIF orientation not applied), MISSING test",
+      "transparency": "ALREADY_DONE in code (mask=auto in drawImage), MISSING explicit test",
+      "color_profiles": "UNKNOWN (no explicit ICC handling; PIL may convert automatically)",
+      "aspect_ratio_handling": "ALREADY DONE (_scaled_size preserves aspect ratio), MISSING explicit test",
+      "prevent_arbitrary_filesystem_reads": "ALREADY_DONE (resolve_inside + parser path validation + test_paths.py)",
+      "preserve_content_without_crop": "ALREADY_DONE (_scaled_size scales proportionally, no crop)",
+      "captions_labels_alt_text": "ALREADY DONE (alt mandatory, caption optional, ref_id optional with caption requirement)",
+      "mandatory_asset_failures_fail_visibly": "ALREADY_DONE (ContentError on missing/corrupt/too-large)"
+    },
+    "missing_tests": [
+      "corrupt/truncated image rejected",
+      "huge image (> MAX_PIXELS) rejected",
+      "transparent PNG (RGBA) renders",
+      "JPEG format accepted",
+      "EXIF-rotated image displayed in intended orientation",
+      "image with id requires caption (parser rule)"
+    ]
+  },
+  "wp3_table_engine": {
+    "status_by_item": {
+      "column_sizing": "ALREADY_DONE (_column_widths, test_render.py:test_table_columns_never_split_a_word)",
+      "header_repetition": "ALREADY_DONE in code (repeatRows=1), MISSING multi-page test",
+      "row_splitting": "ALREADY_DONE (ReportLab default), MISSING explicit test",
+      "cell_padding": "ALREADY_DONE in code (6pt L/R, 5pt T/B), MISSING explicit test",
+      "wrapping": "ALREADY_DONE (Paragraph in cells), MISSING long-text test",
+      "overflow": "ALREADY_DONE (column width algorithm), MISSING wide-table test",
+      "nested_formatting": "ALREADY_DONE (to_markup in cells), MISSING explicit test",
+      "captions": "ALREADY_DONE (TABLE: syntax, CaptionParagraph), MISSING end-to-end test",
+      "numbering": "ALREADY_DONE (analyze, A10), MISSING explicit test",
+      "unicode_cells": "MISSING test",
+      "empty_cells": "MISSING test",
+      "multi_page_table": "MISSING test",
+      "orphan_header": "MISSING test"
+    },
+    "missing_tests": [
+      "multi-page table repeats header",
+      "wide table fits without clipping",
+      "Unicode text in table cells",
+      "empty cells in table",
+      "long text wraps in cells",
+      "nested formatting (bold, italic, code, links) in table cells",
+      "table caption and numbering end-to-end"
+    ]
+  },
+  "wp4_diagram_engine": {
+    "status_by_item": {
+      "vector_drawing_geometry": "ALREADY_DONE (canvas primitives in diagram.py)",
+      "nodes_edges_labels": "ALREADY_DONE in code, MISSING explicit test",
+      "long_labels": "ALREADY_DONE in code (_lines/simpleSplit), MISSING test",
+      "cycles": "ALREADY_DONE in code (_ranks back-edge handling), MISSING test",
+      "scaling": "ALREADY_DONE in code (MIN_DIAGRAM_SCALE=0.78, DiagramFlowable.wrap), MISSING test",
+      "minimum_legible_font": "ALREADY_DONE (check_glyphs, NODE_FONT=10, EDGE_FONT=9), MISSING test",
+      "page_fit": "ALREADY_DONE (MAX_DIAGRAM_HEIGHT=0.72, ContentError), MISSING test",
+      "arrows": "ALREADY_DONE (_arrowhead), MISSING test",
+      "connector_collisions": "ALREADY_DONE (barycenter crossing minimization), MISSING test",
+      "vector_preservation": "ALREADY_DONE (always canvas primitives, no rasterization)",
+      "reject_impossible_layouts": "ALREADY_DONE (ContentError for too tall/too many nodes), MISSING test",
+      "no_content_collision": "MISSING test"
+    },
+    "missing_tests": [
+      "flow diagram renders (nodes, edges, labels in text)",
+      "sequence diagram renders (actors, messages)",
+      "layers diagram renders",
+      "diagram too tall is rejected",
+      "too many nodes is rejected",
+      "long labels wrap without overflow",
+      "diagram with cycles (back edges) renders",
+      "diagram caption appears in text and list of figures",
+      "diagram scaling shrinks to fit available space"
+    ]
+  },
+  "wp5_composition": {
+    "status_by_item": {
+      "image_table_diagram_adjacency": "MISSING test",
+      "keepWithNext": "PARTIALLY DONE (test_render.py:test_intro_paragraph_stays_with_its_code_block for code; missing for images/diagrams)",
+      "page_breaks": "ALREADY_DONE (test_consecutive_page_breaks_do_not_create_blank_pages)",
+      "widow_orphan_rules": "ALREADY_DONE in code (allowWidows=0, allowOrphans=0)",
+      "captions_chapter_boundaries": "PARTIALLY DONE (chapter_pages tested; caption+chapter boundary missing)",
+      "visual_qa": "NEEDED at phase end",
+      "a1_a16_a7_validation": "NEEDED at phase end (rebuild + audit)",
+      "performance_memory": "MISSING measurement"
+    },
+    "missing_tests": [
+      "image and table on same page",
+      "diagram and table on same page",
+      "figure caption appears in list of figures",
+      "table caption appears in list of tables",
+      "chapter boundary with visual content does not create blank pages"
+    ]
+  }
+}

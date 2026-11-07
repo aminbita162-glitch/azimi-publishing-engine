@@ -185,13 +185,9 @@ def deliver_pdf(project_root: Union[str, Path], document_dir: str, mode: str) ->
     pdf = folder / BUILD_DIR / f"{meta.output_name}_v{meta.version}.pdf"
     checksum = _sha256_file(pdf)
     if mode == "release":
+        # Fail closed until the separately approved cryptographic release gate
+        # implements trusted keys, replay protection and durable delivery.
         raise ConfigError("release temporarily disabled pending cryptographic owner authorization")
-        approval = folder / APPROVAL_FILE
-        if not approval.is_file():
-            raise ConfigError(f"release stopped: {APPROVAL_FILE} is missing in the document folder")
-        approved = re.findall(r"(?mi)^APPROVED\s+([0-9a-f]{64})\b", approval.read_text(encoding="utf-8"))
-        if checksum not in approved:
-            raise ConfigError("release stopped: the approval file does not name the checksum of this PDF")
     base = output_base()
     target_dir = base / DRAFTS_FOLDER if mode == "draft" else base
     target_dir.mkdir(parents=True, exist_ok=True)

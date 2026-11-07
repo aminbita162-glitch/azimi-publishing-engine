@@ -16,13 +16,19 @@ from pypdf import PdfReader
 from ..render.styles import MARGIN_BOTTOM, MARGIN_TOP, PAGE_HEIGHT, PAGE_WIDTH
 from ..schemas.meta import Meta
 
-MAX_BLANK_RATIO = 0.35
+MAX_BLANK_RATIO = 0.13  # 87% minimum body-page coverage
 MAX_PDF_BYTES = 25 * 1024 * 1024
 MIN_PAGE_TEXT = 20
 MIN_FONT_SIZE = 7.5
 MIN_IMAGE_DPI = 140.0
 MIN_CONTRAST = 4.5
 A4_TOLERANCE = 1.0
+# A painted rectangle that spans at least this fraction of the body-frame height
+# is treated as a decorative full-page background, watermark or rule rather than
+# substantive body fill, so it cannot inflate the measured page fill.  Real
+# content rectangles (diagram nodes, table cells, code frames) are far shorter
+# than the body frame and are always counted.
+DECORATIVE_FULL_FRAME_FRACTION = 0.9
 
 
 @dataclass(frozen=True)
@@ -31,6 +37,7 @@ class Check:
     name: str
     status: str
     detail: str
+    issues: Tuple[str, ...] = ()
 
     @property
     def passed(self) -> bool:
@@ -51,7 +58,14 @@ class AuditReport:
         return {
             "result": "PASS" if self.passed else "FAIL",
             "checks": [
-                {"id": c.id, "name": c.name, "status": c.status, "detail": c.detail} for c in self.checks
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "status": c.status,
+                    "detail": c.detail,
+                    "issues": list(c.issues),
+                }
+                for c in self.checks
             ],
             "page_fill": [round(value, 3) for value in self.page_fill],
             "exempt_pages": list(self.exempt_pages),
@@ -64,9 +78,19 @@ def _normalize(text: str) -> str:
 
 
 def page_fill_ratios(reader: PdfReader) -> List[float]:
-    """Fraction of the body area used on each page, measured from the lowest body text line."""
+    """Fraction of the body area used on each page.
+
+    Measured from the lowest drawn element (text characters, XObject images and
+    the background rectangles of tables, code blocks and figures) to the top of
+    the body frame.  A painted rectangle that spans at least
+    ``DECORATIVE_FULL_FRAME_FRACTION`` of the body-frame height is a decorative
+    full-page background, watermark or rule and is not counted, so it cannot
+    inflate the measured fill (false-fill defence).  Real content rectangles
+    are far shorter than the body frame and are always counted.
+    """
     top = PAGE_HEIGHT - MARGIN_TOP
     bottom = MARGIN_BOTTOM
+    span = top - bottom
     ratios: List[float] = []
     for page in reader.pages:
         lowest: List[float] = []
@@ -77,12 +101,54 @@ def page_fill_ratios(reader: PdfReader) -> List[float]:
                 if bottom - 2 <= y <= top + 2:
                     _lowest.append(y)
 
-        page.extract_text(visitor_text=visit)
+        page.extract_text(
+            visitor_text=visit,
+            visitor_operand_before=_rect_visitor(lowest, bottom, top, span),
+        )
         if not lowest:
             ratios.append(0.0)
         else:
-            ratios.append(max(0.0, min(1.0, (top - min(lowest)) / (top - bottom))))
+            ratios.append(max(0.0, min(1.0, (top - min(lowest)) / span)))
     return ratios
+
+
+def _rect_visitor(lowest: list, bottom: float, top: float, span: float):
+    """Return a visitor_operand_before callback that records painted-rectangle and
+    XObject-image bottoms.
+
+    pypdf calls visitor_operand_before(operator, operands, cm_matrix, tm_matrix).
+    A rectangle ('re') whose height is at least DECORATIVE_FULL_FRAME_FRACTION of
+    the body-frame height is a decorative full-page background and is skipped;
+    XObject images ('Do') are always substantive content.
+    """
+
+    def visitor(operator, operands, cm_matrix, tm_matrix):  # noqa: ARG001
+        # 're' (rectangle): operands are [x, y, width, height]; height may be
+        # negative (ReportLab draws top-down).  Use the absolute height so a
+        # decorative full-page background (height ~= the body frame) is skipped
+        # while real content rectangles (cells, frames, diagram nodes) count.
+        if operator == b"re" and len(operands) >= 4:
+            try:
+                y = float(operands[1])
+                h = float(operands[3])
+                if abs(h) < DECORATIVE_FULL_FRAME_FRACTION * span:
+                    y_low = min(y, y + h)
+                    if bottom - 2 <= y_low <= top + 2:
+                        lowest.append(y_low)
+            except (TypeError, ValueError):
+                pass
+        # 'Do' (XObject — drawn image/form): the current cm_matrix encodes the
+        # bounding box.  For a unit-square image placed with [w 0 0 h x y] cm,
+        # the bottom-left y is the cm_matrix translation component (index 5).
+        elif operator == b"Do" and cm_matrix:
+            try:
+                y_low = float(cm_matrix[5])
+                if bottom - 2 <= y_low <= top + 2:
+                    lowest.append(y_low)
+            except (TypeError, ValueError, IndexError):
+                pass
+
+    return visitor
 
 
 def _outline_entries(reader: PdfReader) -> List[Tuple[str, int]]:
@@ -103,6 +169,19 @@ def _outline_entries(reader: PdfReader) -> List[Tuple[str, int]]:
     return entries
 
 
+def _unreadable_report(reason: str, exempt_pages: Sequence[int]) -> "AuditReport":
+    """A failing audit report for an unreadable, encrypted or truncated PDF.
+
+    No other check can run without readable pages, so the audit fails closed
+    with a single readability check rather than crashing.
+    """
+    return AuditReport(
+        checks=(Check("A0", "PDF is readable", "FAIL", reason, (reason,)),),
+        page_fill=(),
+        exempt_pages=tuple(sorted(set(exempt_pages))),
+    )
+
+
 def audit_pdf(
     pdf: bytes,
     meta: Meta,
@@ -113,14 +192,32 @@ def audit_pdf(
     contrast: Sequence[Tuple[str, float]] = (),
 ) -> AuditReport:
     """Run all audit checks on pdf and return the report."""
-    reader = PdfReader(io.BytesIO(pdf))
-    pages = list(reader.pages)
-    texts = [page.extract_text() or "" for page in pages]
+    try:
+        reader = PdfReader(io.BytesIO(pdf))
+        if reader.is_encrypted:
+            return _unreadable_report(
+                "encrypted PDF: the audit requires an unencrypted document", exempt_pages
+            )
+        pages = list(reader.pages)
+        texts = [page.extract_text() or "" for page in pages]
+    except Exception as exc:  # truncated, malformed or otherwise unreadable input
+        return _unreadable_report(
+            f"unreadable PDF: {type(exc).__name__}: {exc}", exempt_pages
+        )
+
     checks: List[Check] = []
 
     def add(check_id: str, name: str, problems: Sequence[str], ok_detail: str) -> None:
+        problems = list(problems)
+        if problems:
+            preview = "; ".join(problems[:6])
+            if len(problems) > 6:
+                preview += f"; … ({len(problems)} total, see issues)"
+            detail = preview
+        else:
+            detail = ok_detail
         checks.append(
-            Check(check_id, name, "FAIL" if problems else "PASS", "; ".join(problems[:6]) if problems else ok_detail)
+            Check(check_id, name, "FAIL" if problems else "PASS", detail, tuple(problems))
         )
 
     # A1 text on every page

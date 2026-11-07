@@ -1,0 +1,153 @@
+{
+  "phase": "P4",
+  "subject": "PDF audit contract inventory — A1 through A16",
+  "source": "engine/audit/pdf_audit.py",
+  "thresholds": {
+    "max_blank_ratio": 0.13,
+    "min_body_fill_percent": 87,
+    "max_pdf_bytes": 26214400,
+    "min_page_text_chars": 20,
+    "min_font_size_pt": 7.5,
+    "min_image_dpi": 140.0,
+    "min_contrast_ratio": 4.5,
+    "a4_tolerance_pt": 1.0
+  },
+  "manifest_fields": ["result", "checks[].id", "checks[].name", "checks[].status", "checks[].detail", "checks[].issues", "page_fill", "exempt_pages", "max_blank_ratio"],
+  "cli_exit_codes": { "0": "success", "2": "input error", "3": "audit failure" },
+  "checks": [
+    {
+      "id": "A1", "name": "Every page carries extractable text",
+      "pass_condition": "every page has at least MIN_PAGE_TEXT (20) stripped characters",
+      "fail_fields": ["pages without text: [...]"],
+      "negative_fixture": "blank page / image-only page / empty PDF",
+      "false_positive_risk": "page with only whitespace or decorative glyphs counts as text",
+      "false_negative_risk": "a page whose only content is inside an image is flagged"
+    },
+    {
+      "id": "A2", "name": "All fonts are embedded",
+      "pass_condition": "every font resource has a FontDescriptor with FontFile/FontFile2/FontFile3",
+      "fail_fields": ["page N: /BaseFont"],
+      "negative_fixture": "PDF using a standard-14 font without descriptor",
+      "false_positive_risk": "standard-14 fonts are present but ReportLab embeds all fonts",
+      "false_negative_risk": "a subset font missing the descriptor entry is not caught"
+    },
+    {
+      "id": "A3", "name": "Metadata and document language",
+      "pass_condition": "title==meta.title, author==meta.author, subject non-empty, creation date present, /Lang==meta.language",
+      "fail_fields": ["title differs", "author differs", "subject is empty", "creation date missing", "document language is X expected Y"],
+      "negative_fixture": "PDF whose Info dict title differs from meta.yaml",
+      "false_positive_risk": "none; the check is exact",
+      "false_negative_risk": "XMP-only metadata (no Info dict) is not inspected"
+    },
+    {
+      "id": "A4", "name": "Outline entries point to their headings",
+      "pass_condition": "outline non-empty when expected and every entry resolves to a page whose text contains the heading",
+      "fail_fields": ["outline is empty", "entry has no valid destination", "entry not on page N"],
+      "negative_fixture": "PDF with no outline, or outline pointing past last page",
+      "false_positive_risk": "expect_outline=False disables the empty-outline branch",
+      "false_negative_risk": "destination resolves but lands on the wrong heading text"
+    },
+    {
+      "id": "A5", "name": "Links are safe and complete",
+      "pass_condition": "external links are http/https; internal links carry a Dest or action /D",
+      "fail_fields": ["page N: unsafe link", "page N: link without destination"],
+      "negative_fixture": "link with a javascript: or ftp: URI",
+      "false_positive_risk": "none",
+      "false_negative_risk": "a link whose /A is missing both /S and /Dest is not flagged"
+    },
+    {
+      "id": "A6", "name": "Every page is A4",
+      "pass_condition": "every page mediabox within A4_TOLERANCE (1pt) of PAGE_WIDTH x PAGE_HEIGHT",
+      "fail_fields": ["pages with another size: [...]"],
+      "negative_fixture": "Letter-size or rotated page",
+      "false_positive_risk": "none; tolerance is tight",
+      "false_negative_risk": "a page whose mediabox is A4 but cropbox is not is not checked"
+    },
+    {
+      "id": "A7", "name": "Body pages are filled to at least 87%",
+      "pass_condition": "every non-exempt page has fill >= 1 - max_blank_ratio (0.87)",
+      "fail_fields": ["page N (X% blank)"],
+      "negative_fixture": "decorative full-body background rectangle with one text line",
+      "false_positive_risk": "decorative background painted inside the body frame can inflate fill (mitigated P4.WP2)",
+      "false_negative_risk": "exempt pages hide genuine underfill; exemption legitimacy is tested separately"
+    },
+    {
+      "id": "A8", "name": "File size is reasonable",
+      "pass_condition": "len(pdf) <= MAX_PDF_BYTES (25 MiB)",
+      "fail_fields": ["N bytes"],
+      "negative_fixture": "PDF over 25 MiB",
+      "false_positive_risk": "none",
+      "false_negative_risk": "a moderately large but legitimate PDF is not flagged"
+    },
+    {
+      "id": "A9", "name": "Internal links land on a page",
+      "pass_condition": "every internal link destination resolves to a page index in range",
+      "fail_fields": ["page N: a link points nowhere"],
+      "negative_fixture": "link whose /D points at a freed/invalid object",
+      "false_positive_risk": "none",
+      "false_negative_risk": "named-destination resolution failure is caught but a wrong-but-in-range page is not"
+    },
+    {
+      "id": "A10", "name": "Figure and table numbers are continuous",
+      "pass_condition": "Figure N. and Table N. numbers each form 1..max with no gaps",
+      "fail_fields": ["Figure numbers are [...]", "Table numbers are [...]"],
+      "negative_fixture": "content with Figure 1 then Figure 3",
+      "false_positive_risk": "numbers appear in prose (not as captions) and are counted",
+      "false_negative_risk": "duplicate numbers collapse to a set, hiding a real duplicate"
+    },
+    {
+      "id": "A11", "name": "Smallest text is at least 7.5 pt",
+      "pass_condition": "min rendered font size * transform scale >= MIN_FONT_SIZE (7.5)",
+      "fail_fields": ["smallest text is N pt"],
+      "negative_fixture": "footnote at 5pt",
+      "false_positive_risk": "none",
+      "false_negative_risk": "scaled text below 7.5pt inside a transformed XObject may be missed"
+    },
+    {
+      "id": "A12", "name": "Raster images are sharp enough",
+      "pass_condition": "min_image_dpi >= MIN_IMAGE_DPI (140) when raster figures exist; N/A otherwise",
+      "fail_fields": ["lowest image resolution is N dpi"],
+      "negative_fixture": "image rendered below 140 dpi",
+      "false_positive_risk": "N/A when there are no raster figures",
+      "false_negative_risk": "DPI is supplied by the builder, not measured by the audit"
+    },
+    {
+      "id": "A13", "name": "Text contrast is at least 4.5:1",
+      "pass_condition": "every supplied contrast pair >= MIN_CONTRAST (4.5)",
+      "fail_fields": ["name ratio:1"],
+      "negative_fixture": "pale text on white",
+      "false_positive_risk": "contrast is supplied by the builder, not measured from the PDF",
+      "false_negative_risk": "unmeasured color pairs are not checked"
+    },
+    {
+      "id": "A14", "name": "No active or embedded content",
+      "pass_condition": "no /OpenAction, /AA, /AcroForm, /JavaScript, /EmbeddedFiles, forbidden actions or annotations",
+      "fail_fields": ["catalog contains /X", "name tree contains /X", "page N has page actions", "page N: forbidden action", "page N: forbidden annotation"],
+      "negative_fixture": "PDF with /JavaScript open action or /FileAttachment",
+      "false_positive_risk": "none",
+      "false_negative_risk": "an action in an annotation not yet enumerated would be missed"
+    },
+    {
+      "id": "A15", "name": "Metadata does not leak local paths",
+      "pass_condition": "no Info value matches a local path pattern (/Users/, /home/, /tmp/, /var/, drive letters, backslashes)",
+      "fail_fields": ["key contains a local path"],
+      "negative_fixture": "/Producer set to /Users/someone/tool",
+      "false_positive_risk": "none; pattern is conservative",
+      "false_negative_risk": "a path in XMP (not Info) is not inspected"
+    },
+    {
+      "id": "A16", "name": "Text extracts cleanly",
+      "pass_condition": "no page text contains U+FFFD, (cid: or disallowed control characters",
+      "fail_fields": ["page N has replacement or control characters"],
+      "negative_fixture": "text with U+FFFD or a bare control character",
+      "false_positive_risk": "none",
+      "false_negative_risk": "control chars allowed by the allow-list (\\n\\r\\t\\x0c) are not flagged"
+    }
+  ],
+  "exemption_policy": {
+    "front_matter": "pages 1 .. body_start-1",
+    "forced_pages": "chapter-end pages under chapter_pages:true, plus chapter-start page+1 when chapter_pages:true",
+    "last_page": "terminal content page is exempt",
+    "rule": "every exempt page must have a structural cause; forged/out-of-range/duplicate exemptions must not produce a false PASS (tested in test_phase2_audit_reporting.ExemptionLegitimacyTests)"
+  }
+}

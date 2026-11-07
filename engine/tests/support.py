@@ -111,14 +111,33 @@ def make_project(base: Path, content: str = CONTENT, meta: str = META, with_imag
 
 
 class TempProject:
-    """Context helper: creates a project in a temporary directory."""
+    """Context helper: creates a project in a temporary directory.
+
+    Supports both the context-manager protocol (__enter__/__exit__) and the
+    explicit init/enter/exit API used by setUpClass/tearDownClass in unittest.
+    """
 
     def __init__(self, **kwargs):
         self._kwargs = kwargs
         self._tmp = tempfile.TemporaryDirectory()
 
+    # --- context-manager protocol (with-statement) ---
+
     def __enter__(self) -> Path:
         return make_project(Path(self._tmp.name), **self._kwargs)
 
     def __exit__(self, *exc):
+        self._tmp.cleanup()
+
+    # --- explicit lifecycle API (unittest setUpClass/tearDownClass) ---
+
+    def init(self) -> None:
+        """No-op: the TemporaryDirectory is already created in __init__."""
+
+    def enter(self) -> Path:
+        """Create the project tree and return the root path."""
+        return make_project(Path(self._tmp.name), **self._kwargs)
+
+    def exit(self, exc_type, exc_val, exc_tb) -> None:
+        """Clean up the temporary directory."""
         self._tmp.cleanup()

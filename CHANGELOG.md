@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.5.7 - November 2026 (Phase 6)
+
+- Release security threat model and current-state audit: evidence/phase6_threat_model.md documents assets, principals, trust boundaries, attackers, failure modes, filesystem attacks, replay/rollback/substitution threats, existing controls inventory (15 modules, 13 test files, ~61 release-security test cases) and the release fail-closed invariant
+- Release authorization contract v1.0: docs/security/release-authorization-contract-v1.0.txt specifies the existing implementation (canonical payload, Ed25519 signature, trust registry, binding, replay, atomic delivery, audit ledger, pipeline ordering, fail-closed release gate) for owner approval — supersedes the v0.1 draft
+- Security assurance matrix: evidence/phase6_security_assurance_matrix.md maps 50 threats to controls and negative tests, all PASS; identifies 6 gaps requiring owner approval (concurrent test, permission denied, key rotation sequence, timestamp/expiry, clock skew, pipeline-to-CLI connection)
+- Release mode remains HARD-DISABLED: deliver_pdf raises ConfigError before any filesystem operation; cryptographic pipeline not connected to CLI delivery; no release enablement
+- Phase 6 evidence: 384 tests pass, 61-page course A1-A16 all PASS (16/16), no code changes
+
+## 0.5.6 - November 2026 (Phase 5)
+
+- Image safety: EXIF orientation transpose in _figure_size via ImageOps.exif_transpose; Figure accepts path string or PIL image source; non-EXIF images use existing path-based behaviour (no change to existing PDFs)
+- Image safety tests: corrupt image, huge image (>MAX_PIXELS), transparent RGBA, JPEG acceptance, symlink rejection, EXIF orientation (dimension + build), image-with-id-requires-caption, aspect ratio, non-PNG/JPEG rejection (11 tests)
+- Table engine tests: multi-page header repetition, wide table (8 columns), Unicode cells, empty cells, long text wrapping, nested formatting (bold/italic/code), caption/numbering end-to-end, content correspondence, deterministic rebuild (9 tests)
+- Diagram engine tests: flow/sequence/layers rendering, too-tall rejection, too-many-nodes rejection, long label wrapping, cycles/back-edges, caption with list-of-figures, flowable scaling, vector-not-raster (10 tests)
+- Composition tests: image+table+diagram adjacency, figure/table caption LOF/LOT, chapter boundary with visual content, all-16-check audit, build performance, deterministic rebuild (9 tests)
+- Phase 5 closure: 384 tests pass, 61-page course A1-A16 all PASS (16/16), visual QA 30/61 vision-inspected (PARTIAL) + 61/61 pixel + text extraction, zero defects
+
+## 0.5.5 - November 2026 (Phase 4)
+
+- A7 false-fill defence: a painted rectangle spanning at least 90% of the body-frame height (a decorative full-page background, watermark or rule) is no longer counted as body fill; real content rectangles (table cells, code frames, diagram nodes — all far shorter) are still counted
+- Audit contract inventory: evidence/phase4_audit_contract.json documents every A1-A16 check (pass predicate, fail fields, negative fixture, false-positive/false-negative risk), thresholds, manifest fields, CLI exit codes and the exemption policy
+- Adversarial tests: decorative full-frame background fails A7, short content rectangle is still counted, non-A4 page fails A6 (7 tests)
+- Structural/semantic adversarial tests: unembedded font fails A2, javascript: link fails A5, unresolved internal link fails A9, gapped figure numbering fails A10, /AcroForm and /Launch action fail A14, control character fails A16 (8 tests)
+- Audit robustness: audit_pdf no longer crashes on truncated, empty, encrypted or malformed PDF input; it fails closed with a single A0 readability check and a deterministic overall FAIL (9 tests)
+- Phase 4 closure: 345 tests pass, 61-page course A1-A16 all PASS (16/16), visual QA 24/61 pages vision-inspected (PARTIAL), 61/61 pixel-analyzed and text-extracted, zero defects
+
+## 0.5.4 - November 2026
+
+- A7 page-fill threshold raised from 72% to 87% (MAX_BLANK_RATIO 0.35 → 0.13)
+- Page-fill measurement now includes painted rectangles and XObject images, not just text baselines
+- Audit reporting: Check.issues carries the full structured failure list; detail shows a bounded preview with an explicit total count (no silent truncation beyond six)
+- Manifest verify hardened: validates digest format, rejects boolean byte counts, parent-directory traversal, backslash paths, wrong-brand paths and malformed audit metadata
+- Layout calibration: H2/H3 spaceBefore 50/52 → 28, code_label spaceBefore 50 → 18, table_caption spaceBefore 50 → 24, CHAPTER_MIN_SPACE 58mm → 28mm, KeepTogether wrapper removed from code blocks, MIN_DIAGRAM_SCALE 0.85 → 0.78
+- chapter_pages dual-page exemption: when chapter_pages is true, both the chapter-end page (KEY POINT summary) and the chapter-start page (heading + objectives) are exempt from A7 as structural boundaries
+- TempProject test helper supports both context-manager and setUpClass/tearDownClass protocols
+- Dead unreachable brand-namespace branch removed from verify_document
+- Release delivery hard-disabled pending cryptographic owner authorization
+- Regression tests: audit reporting (9), manifest negative (12), pagination contract (4)
+
 ## 0.5.3 - November 2026
 
 - Tickets as files: the owner writes tickets/ID.txt, the agents exchange handoff, delivery, audit and report files in the tickets folder

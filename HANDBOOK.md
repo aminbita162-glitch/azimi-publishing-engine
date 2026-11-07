@@ -122,7 +122,7 @@ Exit status: 0 success, 2 input error, 3 audit failure.
 | A4 | Every outline entry points to its heading |
 | A5 | Links are http or https, or have a destination |
 | A6 | Every page is A4 |
-| A7 | Body pages are at least 72 percent filled |
+| A7 | Body pages are at least 87 percent filled |
 | A8 | File size is reasonable |
 | A9 | Internal links land on a page |
 | A10 | Figure and table numbers have no gaps |
