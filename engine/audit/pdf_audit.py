@@ -169,6 +169,19 @@ def _outline_entries(reader: PdfReader) -> List[Tuple[str, int]]:
     return entries
 
 
+def _unreadable_report(reason: str, exempt_pages: Sequence[int]) -> "AuditReport":
+    """A failing audit report for an unreadable, encrypted or truncated PDF.
+
+    No other check can run without readable pages, so the audit fails closed
+    with a single readability check rather than crashing.
+    """
+    return AuditReport(
+        checks=(Check("A0", "PDF is readable", "FAIL", reason, (reason,)),),
+        page_fill=(),
+        exempt_pages=tuple(sorted(set(exempt_pages))),
+    )
+
+
 def audit_pdf(
     pdf: bytes,
     meta: Meta,
@@ -179,9 +192,19 @@ def audit_pdf(
     contrast: Sequence[Tuple[str, float]] = (),
 ) -> AuditReport:
     """Run all audit checks on pdf and return the report."""
-    reader = PdfReader(io.BytesIO(pdf))
-    pages = list(reader.pages)
-    texts = [page.extract_text() or "" for page in pages]
+    try:
+        reader = PdfReader(io.BytesIO(pdf))
+        if reader.is_encrypted:
+            return _unreadable_report(
+                "encrypted PDF: the audit requires an unencrypted document", exempt_pages
+            )
+        pages = list(reader.pages)
+        texts = [page.extract_text() or "" for page in pages]
+    except Exception as exc:  # truncated, malformed or otherwise unreadable input
+        return _unreadable_report(
+            f"unreadable PDF: {type(exc).__name__}: {exc}", exempt_pages
+        )
+
     checks: List[Check] = []
 
     def add(check_id: str, name: str, problems: Sequence[str], ok_detail: str) -> None:
