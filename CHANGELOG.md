@@ -7,6 +7,7 @@
 - Adversarial tests: decorative full-frame background fails A7, short content rectangle is still counted, non-A4 page fails A6 (7 tests)
 - Structural/semantic adversarial tests: unembedded font fails A2, javascript: link fails A5, unresolved internal link fails A9, gapped figure numbering fails A10, /AcroForm and /Launch action fail A14, control character fails A16 (8 tests)
 - Audit robustness: audit_pdf no longer crashes on truncated, empty, encrypted or malformed PDF input; it fails closed with a single A0 readability check and a deterministic overall FAIL (9 tests)
+- Phase 4 closure: 345 tests pass, 61-page course A1-A16 all PASS (16/16), visual QA 24/61 pages vision-inspected (PARTIAL), 61/61 pixel-analyzed and text-extracted, zero defects
 
 ## 0.5.4 - November 2026
 

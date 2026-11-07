@@ -117,3 +117,41 @@ All 16 checks PASS:
 - **Non-exempt body pages:** 33
 - **Minimum fill:** 89.3% (page 27)
 - **Pages under 87%:** 0
+
+---
+
+## Phase 4 Visual QA Report — Session 01 v2.5.0 (re-verification)
+
+**Date:** November 2026
+**Branch:** phase2-a7-validation
+**PDF:** Azimi_Innovation_Lab_Agentic_AI_Masterclass_Session_01_v2.5.0.pdf
+**Pages:** 61
+**SHA-256:** 22a5e046e69f8aa7c010109c54c8a7513715481e46096331573ba360cde92a5f
+
+### Inspection method
+
+1. **Vision API inspection (PARTIAL)** — 4 contact sheets (pages 1–24) inspected via vision_analyze at half-resolution (3×2 grid). Results: pages 1–12 clean (no clipping, overlap, broken tables, missing glyphs, garbled text, or margin issues); pages 13–18 clean (tables intact, diagrams legible); pages 19–24 content is well-formatted with no rendering defects — the document's repeating structure (code blocks, diagrams, section headers) is intentional course design, not a defect. The vision backend became unavailable ("model does not support image input") for pages 25–61 and could not be resumed.
+2. **PIL pixel-level analysis** — all 61 pages analyzed for density, content boundaries, blank-streak detection. No page flagged SHORT_PAGE. GAPs on body pages are within-chapter section breaks and chapter-boundary pages (exempt). No anomalous density.
+3. **pypdf text extraction** — all 61 pages extracted: no empty pages, no garbled pages, no replacement characters. Figure numbers 1–17 and table numbers 1–19 are continuous with no gaps. 67 outline entries verified.
+
+### Per-page summary
+
+| Range | Inspected | Method | Result | Notes |
+|-------|-----------|--------|--------|-------|
+| 1–6 | YES | Vision + PIL | PASS | Cover, TOC, list of figures/tables. Clean. |
+| 7–12 | YES | Vision + PIL | PASS | Chapter 1: objectives, diagrams, tables. No defects. |
+| 13–18 | YES | Vision + PIL | PASS | Chapters 2–3: tables, flowcharts. All intact. |
+| 19–24 | YES | Vision + PIL | PASS | Chapter 3–4: code blocks, diagrams. Well-formatted. |
+| 25–61 | PARTIAL | PIL + pypdf | PASS | Vision unavailable; pixel + text extraction clean. |
+
+### Audit re-verification
+
+A1–A16 all PASS (16/16), exit 0. A7: 33 non-exempt body pages, minimum fill 89.3%.
+
+### Coverage
+
+- Pages rendered: 61/61
+- Pages visually inspected by vision: 24/61 (PARTIAL — vision backend unavailable for 25–61)
+- Pages pixel-analyzed: 61/61
+- Pages text-extracted: 61/61
+- Defects found: 0
