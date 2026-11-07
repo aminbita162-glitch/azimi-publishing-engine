@@ -23,6 +23,12 @@ MIN_FONT_SIZE = 7.5
 MIN_IMAGE_DPI = 140.0
 MIN_CONTRAST = 4.5
 A4_TOLERANCE = 1.0
+# A painted rectangle that spans at least this fraction of the body-frame height
+# is treated as a decorative full-page background, watermark or rule rather than
+# substantive body fill, so it cannot inflate the measured page fill.  Real
+# content rectangles (diagram nodes, table cells, code frames) are far shorter
+# than the body frame and are always counted.
+DECORATIVE_FULL_FRAME_FRACTION = 0.9
 
 
 @dataclass(frozen=True)
@@ -74,14 +80,17 @@ def _normalize(text: str) -> str:
 def page_fill_ratios(reader: PdfReader) -> List[float]:
     """Fraction of the body area used on each page.
 
-    Measured from the lowest drawn element (text characters, painted
-    rectangles and inline images) to the top of the body frame.  Tables,
-    code blocks and figures all paint background rectangles or images below
-    their last text line, so including those operators gives a more accurate
-    picture of how much of the page is actually used.
+    Measured from the lowest drawn element (text characters, XObject images and
+    the background rectangles of tables, code blocks and figures) to the top of
+    the body frame.  A painted rectangle that spans at least
+    ``DECORATIVE_FULL_FRAME_FRACTION`` of the body-frame height is a decorative
+    full-page background, watermark or rule and is not counted, so it cannot
+    inflate the measured fill (false-fill defence).  Real content rectangles
+    are far shorter than the body frame and are always counted.
     """
     top = PAGE_HEIGHT - MARGIN_TOP
     bottom = MARGIN_BOTTOM
+    span = top - bottom
     ratios: List[float] = []
     for page in reader.pages:
         lowest: List[float] = []
@@ -92,30 +101,40 @@ def page_fill_ratios(reader: PdfReader) -> List[float]:
                 if bottom - 2 <= y <= top + 2:
                     _lowest.append(y)
 
-        page.extract_text(visitor_text=visit, visitor_operand_before=_rect_visitor(lowest, bottom, top))
+        page.extract_text(
+            visitor_text=visit,
+            visitor_operand_before=_rect_visitor(lowest, bottom, top, span),
+        )
         if not lowest:
             ratios.append(0.0)
         else:
-            ratios.append(max(0.0, min(1.0, (top - min(lowest)) / (top - bottom))))
+            ratios.append(max(0.0, min(1.0, (top - min(lowest)) / span)))
     return ratios
 
 
-def _rect_visitor(lowest: list, bottom: float, top: float):
+def _rect_visitor(lowest: list, bottom: float, top: float, span: float):
     """Return a visitor_operand_before callback that records painted-rectangle and
     XObject-image bottoms.
 
     pypdf calls visitor_operand_before(operator, operands, cm_matrix, tm_matrix).
+    A rectangle ('re') whose height is at least DECORATIVE_FULL_FRAME_FRACTION of
+    the body-frame height is a decorative full-page background and is skipped;
+    XObject images ('Do') are always substantive content.
     """
 
     def visitor(operator, operands, cm_matrix, tm_matrix):  # noqa: ARG001
-        # 're' (rectangle): operands are [x, y, width, height]
+        # 're' (rectangle): operands are [x, y, width, height]; height may be
+        # negative (ReportLab draws top-down).  Use the absolute height so a
+        # decorative full-page background (height ~= the body frame) is skipped
+        # while real content rectangles (cells, frames, diagram nodes) count.
         if operator == b"re" and len(operands) >= 4:
             try:
                 y = float(operands[1])
                 h = float(operands[3])
-                y_low = min(y, y + h)
-                if bottom - 2 <= y_low <= top + 2:
-                    lowest.append(y_low)
+                if abs(h) < DECORATIVE_FULL_FRAME_FRACTION * span:
+                    y_low = min(y, y + h)
+                    if bottom - 2 <= y_low <= top + 2:
+                        lowest.append(y_low)
             except (TypeError, ValueError):
                 pass
         # 'Do' (XObject — drawn image/form): the current cm_matrix encodes the
