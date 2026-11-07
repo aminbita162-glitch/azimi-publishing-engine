@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.5 - November 2026 (Phase 4)
+
+- Audit contract inventory: evidence/phase4_audit_contract.json documents every A1-A16 check (pass predicate, fail fields, negative fixture, false-positive/false-negative risk), thresholds, manifest fields, CLI exit codes and the exemption policy
+
 ## 0.5.4 - November 2026
 
 - A7 page-fill threshold raised from 72% to 87% (MAX_BLANK_RATIO 0.35 → 0.13)

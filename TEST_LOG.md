@@ -17,3 +17,4 @@
 | T-020 | November 2026 | Engine and agents | Ticket command and ticket files, agent role files with ticket rules, first ticket T-S01-001 validated | python3 -m unittest discover output and engine ticket output | PASS |
 | T-021 | November 2026 | Engine | Phase 2 closure: A7 threshold 87%, full audit issue reporting, manifest hardening, layout calibration, chapter_pages dual-page exemption, 321 tests pass | python3 -m pytest engine/tests/ (321 passed) and engine build courses/ape-v2-5-0-87-cpgmre9g (exit 0, 16/16 PASS) | PASS |
 | T-022 | November 2026 | Document | Session 01 v2.5.0: 61 pages, A1-A16 all PASS, 33 non-exempt body pages, minimum fill 89.3%, verify PASS | engine build + engine verify output | PASS |
+| T-023 | November 2026 | Engine | Phase 4 WP1 audit contract inventory: evidence/phase4_audit_contract.json records every A1-A16 check, thresholds, manifest fields, exit codes and exemption policy | python3 -c json.load validation | PASS |
