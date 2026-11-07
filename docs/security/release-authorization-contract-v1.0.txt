@@ -1,0 +1,198 @@
+AZIMI PUBLISHING ENGINE
+RELEASE AUTHORIZATION CONTRACT — SPECIFICATION FOR OWNER APPROVAL
+STATUS: SPECIFICATION OF EXISTING IMPLEMENTATION — FOR OWNER APPROVAL
+VERSION: v1.0 | DATE: November 2026
+SUPERSEDES: document-authenticity-release-contract-v0.1.txt (draft, NOT IMPLEMENTED)
+
+SCOPE AND AUTHORITY
+This document specifies the release-authorization design already implemented in
+engine/release_security.py, engine/release/, engine/document_authenticity.py, and
+engine/tools_core.py. It does not authorize source changes, key generation, commits,
+pushes, or releases. The existing fail-closed release guard MUST remain active until
+the owner separately approves activation. No implementation is implied by approval of
+this specification; activation is a separate owner gate (P6.WP5).
+
+1. SIGNED PAYLOAD CANONICALIZATION
+
+1.1 Canonical form
+The approval payload is a flat dict with exactly these fields (engine/release_security.py):
+  schema, action, owner_id, document_id, artifact_sha256, manifest_sha256,
+  policy_version, key_id, approval_id, destination
+
+All values are non-empty ASCII strings, each <= 256 characters. The canonical byte
+representation is:
+
+  DOMAIN + json.dumps(payload, sort_keys=True, separators=(",",":"),
+                      ensure_ascii=True, allow_nan=False).encode("ascii")
+
+where DOMAIN = b"AZIMI-PUBLISHING-ENGINE/RELEASE-APPROVAL/V1\x00"
+
+1.2 Invariants
+- Field set is frozen (FIELDS frozenset); extra or missing fields are rejected.
+- schema MUST be "azimi.release-approval.v1"
+- action MUST be "release"
+- artifact_sha256 and manifest_sha256 MUST be 64 lowercase hex digits
+- All other identifiers MUST match [A-Za-z0-9][A-Za-z0-9._:/-]{0,127}
+- Determinism: key insertion order does not affect canonical bytes (sort_keys=True)
+- allow_nan=False prevents NaN/Infinity injection
+- ensure_ascii=True prevents Unicode normalization ambiguity
+
+2. ARTIFACT DIGEST BINDING
+
+The approval payload binds two independent digests:
+- artifact_sha256: SHA-256 of the final PDF file bytes
+- manifest_sha256: SHA-256 of the build manifest JSON
+
+Both are validated as 64-hex-digit strings. The authorization function (authorize_release)
+compares each binding field against the expected context using hmac.compare_digest
+(timing-safe). A mismatch on any of {owner_id, document_id, artifact_sha256,
+manifest_sha256, policy_version, destination} raises ApprovalError before signature
+verification.
+
+The approval is bound to the exact immutable artifact hash, not a mutable path or
+unauthenticated filename. The destination is bound, not the source path.
+
+3. SIGNER IDENTITY
+
+The signer is identified by key_id in the payload. The key_id MUST resolve to an
+active key in the trusted public-key registry. The key_id is validated by the IDENT
+regex and must be a string. An unknown key_id raises ApprovalError ("key not trusted
+or revoked").
+
+4. TRUSTED PUBLIC-KEY DISTRIBUTION
+
+4.1 Registry format
+The trust registry is a Mapping[str, dict] where each value is:
+  {"public_key": bytes (32, raw Ed25519), "status": "active" | "revoked"}
+
+4.2 Validation (engine/release/trust.py:active_public_key)
+- Registry must be a Mapping with <= 256 entries
+- Each key_id must match [A-Za-z0-9][A-Za-z0-9._-]{0,127}
+- Each record must have exactly {public_key, status}
+- public_key must be bytes of length 32
+- status must be "active" or "revoked"
+- The requested key_id must exist and have status "active"
+
+4.3 Distribution
+The registry is caller-provided. No persistent registry is stored in the repository.
+No network calls are made. The caller (owner or owner-controlled process) must
+protect the registry's integrity and provenance.
+
+5. SIGNATURE VERIFICATION (engine/release_security.py:verify_signature)
+
+- Signature is base64-encoded; strict decode with validate=True
+- Signature must be exactly 64 bytes after decode
+- Ed25519 verification via cryptography.hazmat.primitives.asymmetric.ed25519
+- If the cryptography library is unavailable, verification is DENIED (fail-closed)
+- InvalidSignature, ValueError, TypeError → ApprovalError("signature invalid")
+
+6. VERSIONING
+
+- Schema version: "azimi.release-approval.v1" (in payload.schema field)
+- Policy version: payload.policy_version (opaque identifier, matched against expected)
+- Domain prefix includes version: RELEASE-APPROVAL/V1
+
+A schema or policy version mismatch is detected by the binding check in authorize_release
+(policy_version is one of the 6 required binding fields).
+
+7. CONTEXT AND DOMAIN SEPARATION
+
+Two independent signature domains exist:
+- RELEASE-APPROVAL/V1: engine/release_security.py — authorizes release delivery
+- CONTENT-AUTHENTICITY/V1: engine/document_authenticity.py — verifies content authenticity
+
+Each domain has its own DOMAIN prefix, field set, and schema. A signature from one
+domain cannot verify in the other. The content-authenticity domain is independent and
+does not authorize release.
+
+8. EXPIRY AND REPLAY POLICY
+
+8.1 Replay protection (engine/release/replay.py:reserve_approval)
+- An approval_id can be reserved exactly once via O_EXCL file creation
+- The reservation file is created atomically with fsync (file + directory)
+- A second reservation with the same approval_id raises ReplayError
+- Reservations are intentionally NOT rolled back on later failure (approval remains consumed)
+
+8.2 Expiry
+No timestamp or expiry field exists in the current schema. The v0.1 draft proposed
+offline expiration and clock skew policy as open decisions. These remain UNIMPLEMENTED
+and require separate owner approval per WP2 before any timestamp field is added.
+
+8.3 State directory requirements
+- Must exist, be a real directory (not symlink), and be private (st_mode & 0o077 == 0)
+- O_NOFOLLOW on file creation
+
+9. KEY ROTATION AND REVOCATION
+
+- The trust registry supports status: "revoked" for key revocation
+- A revoked key raises ApprovalError before signature verification
+- Key rotation: owner replaces the registry with old key "revoked" and new key "active"
+- No persistent registry in the repository; rotation is an owner-controlled process
+- No test currently exercises the full rotation sequence (old→revoked, new→active)
+
+10. AUDIT EVIDENCE (engine/release/audit_ledger.py:record_release_event)
+
+- Events: "reserved", "delivered", "failed", "uncertain"
+- Each event is a JSON file named {approval_id}.{status}.json
+- O_EXCL creation — never overwrites existing evidence
+- fsync of file + directory for durability
+- Audit directory must be private (0o077 == 0) and not a symlink
+- The pipeline (engine/release/pipeline.py) records events at each state transition
+- On delivery uncertainty, an "uncertain" event is recorded for manual reconciliation
+
+11. ATOMIC DELIVERY (engine/release/atomic_delivery.py:place_verified_snapshot)
+
+- Source must be a regular file (not symlink)
+- Destination directory must be private and owner-owned
+- Copy to private temporary inode (0o600, O_EXCL, O_NOFOLLOW)
+- Verify SHA-256 of streamed content against expected digest
+- Detect source inode change during streaming (st_dev, st_ino, st_size, st_mtime_ns, st_ctime_ns)
+- Atomic hard-link to final destination (no overwrite of existing)
+- fsync of file + directory
+- On failure: temporary file is cleaned; final destination is NEVER deleted
+- AtomicPlacementUncertain: post-link fsync failure — manual reconciliation required
+
+12. PIPELINE ORDERING (engine/release/pipeline.py:execute_authorized_release)
+
+1. authorize_release (signature + binding)
+2. reserve_approval (replay protection — approval consumed)
+3. record_release_event "reserved" (audit)
+4. place_verified_snapshot (atomic delivery)
+5. record_release_event "delivered" (audit)
+
+On failure at step 4: record "failed" or "uncertain". Approval remains consumed.
+No retry. No destination cleanup. Manual reconciliation required.
+
+13. RELEASE-MODE GATE (engine/tools_core.py:deliver_pdf)
+
+- Draft mode: copies verified PDF to Drafts folder; works independently
+- Release mode: RAISES ConfigError BEFORE any filesystem operation
+- The cryptographic pipeline (engine/release/) is NOT connected to the CLI
+- Release remains disabled until separate owner activation (P6.WP5)
+
+14. PRIVATE KEY PROTECTION
+
+- Private signing keys are NEVER stored in the repository, logs, PDF bundles, or test files
+- All test keys are ephemeral (Ed25519PrivateKey.generate() in-memory, never persisted)
+- No key generation, signing, or enrollment is performed by the engine
+- The engine only verifies signatures using caller-provided public keys
+
+15. OPEN DECISIONS REQUIRING OWNER APPROVAL
+
+- Timestamp/expiry field: not in current schema; adding one requires contract amendment
+- Clock skew policy: no timestamp exists; offline expiration is UNIMPLEMENTED
+- Concurrent request idempotency contract: O_EXCL provides atomicity but explicit
+  concurrent-request test is not implemented
+- Full key-rotation sequence test: not implemented (revocation is tested, rotation is not)
+- Connecting pipeline to CLI delivery: NOT done; requires owner activation gate
+- Key custody provider, publisher enrollment, online verification service: NOT implemented
+
+ACTIVATION GATE
+The owner must separately approve:
+1. This specification (contract approval)
+2. The security assurance matrix (P6.WP5)
+3. Enabling release mode in deliver_pdf (removing the ConfigError guard)
+4. Connecting the pipeline to the CLI delivery path
+
+Without all four, release remains disabled. No test passage, audit pass, or
+implementation completeness authorizes release.

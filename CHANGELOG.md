@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.7 - November 2026 (Phase 6)
+
+- Release security threat model and current-state audit: evidence/phase6_threat_model.md documents assets, principals, trust boundaries, attackers, failure modes, filesystem attacks, replay/rollback/substitution threats, existing controls inventory (15 modules, 13 test files, ~61 release-security test cases) and the release fail-closed invariant
+- Release authorization contract v1.0: docs/security/release-authorization-contract-v1.0.txt specifies the existing implementation (canonical payload, Ed25519 signature, trust registry, binding, replay, atomic delivery, audit ledger, pipeline ordering, fail-closed release gate) for owner approval — supersedes the v0.1 draft
+- Security assurance matrix: evidence/phase6_security_assurance_matrix.md maps 50 threats to controls and negative tests, all PASS; identifies 6 gaps requiring owner approval (concurrent test, permission denied, key rotation sequence, timestamp/expiry, clock skew, pipeline-to-CLI connection)
+- Release mode remains HARD-DISABLED: deliver_pdf raises ConfigError before any filesystem operation; cryptographic pipeline not connected to CLI delivery; no release enablement
+- Phase 6 evidence: 384 tests pass, 61-page course A1-A16 all PASS (16/16), no code changes
+
 ## 0.5.6 - November 2026 (Phase 5)
 
 - Image safety: EXIF orientation transpose in _figure_size via ImageOps.exif_transpose; Figure accepts path string or PIL image source; non-EXIF images use existing path-based behaviour (no change to existing PDFs)
