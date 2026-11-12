@@ -63,6 +63,7 @@ from .diagram import DiagramFlowable, build_layout
 from .fonts import check_glyphs
 from .highlight import NUMBERED_LANGUAGES, PLAIN, classify, normalize_language
 from .highlight import to_markup as highlight_markup
+from .xmp import apply_xmp
 from .inline import LINK_COLOR, reference_ids, to_markup, to_plain
 from .styles import (
     CHECKPOINT,
@@ -147,8 +148,9 @@ class CaptionParagraph(Paragraph):
 class _ListOf(TableOfContents):
     """A list of figures or tables, filled from captions of one kind."""
 
-    def __init__(self, kind: str, style: ParagraphStyle) -> None:
+    def __init__(self, kind: str, style: ParagraphStyle, body_start: Optional[int] = None) -> None:
         super().__init__()
+        self.formatter = lambda page: page_label(page, body_start)
         self.kind = kind
         self.levelStyles = [style]
         self.dotsMinLevel = 0
@@ -229,6 +231,26 @@ def analyze(blocks: Sequence[Block], numbered: bool, known: Optional[Dict[str, s
     return Analysis(headings, figures, tables, refs, tuple(figure_entries), tuple(table_entries))
 
 
+def _roman(number: int) -> str:
+    """Lowercase roman numeral of a positive integer (page labels of the front matter)."""
+    result = ""
+    for value, symbol in ((1000, "m"), (900, "cm"), (500, "d"), (400, "cd"), (100, "c"), (90, "xc"),
+                          (50, "l"), (40, "xl"), (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")):
+        while number >= value:
+            result += symbol
+            number -= value
+    return result
+
+
+def page_label(page: int, body_start: Optional[int]) -> str:
+    """Printed page label: roman numerals before the first chapter, then decimal from 1."""
+    if body_start is None or body_start <= 1:
+        return str(page)
+    if page < body_start:
+        return _roman(page)
+    return str(page - body_start + 1)
+
+
 class _Document(BaseDocTemplate):
     def __init__(
         self,
@@ -238,6 +260,7 @@ class _Document(BaseDocTemplate):
         styles: Styles,
         total_pages: Optional[int],
         header_map: Dict[int, str],
+        body_start: Optional[int] = None,
     ) -> None:
         super().__init__(
             target,
@@ -259,6 +282,7 @@ class _Document(BaseDocTemplate):
         self.styles = styles
         self.total_pages = total_pages
         self.header_map = header_map
+        self.known_body_start = body_start
         self.forced_pages: set = set()
         self.body_start_page: Optional[int] = None
         self._heading_count = 0
@@ -284,7 +308,16 @@ class _Document(BaseDocTemplate):
         )
 
     def beforeDocument(self):
-        self.canv.setViewerPreference("DisplayDocTitle", "true")
+        canvas = self.canv
+        canvas.setViewerPreference("DisplayDocTitle", "true")
+        canvas.setProducer(f"Azimi Publishing Engine {__version__}")
+        canvas.showOutline()
+        start = self.known_body_start
+        if start is not None and start > 1:
+            canvas.addPageLabel(0, style="ROMAN_LOWER", start=1)
+            canvas.addPageLabel(start - 1, style="ARABIC", start=1)
+        else:
+            canvas.addPageLabel(0, style="ARABIC", start=1)
 
     def handle_documentBegin(self):
         self._heading_count = 0
@@ -349,7 +382,10 @@ class _Document(BaseDocTemplate):
             f"{self.brand.display_name}  |  Version {self.meta.version}  |  {self.meta.date}",
         )
         if with_page:
-            label = f"Page {doc.page}" if not self.total_pages else f"Page {doc.page} of {self.total_pages}"
+            start = self.known_body_start
+            label = f"Page {page_label(doc.page, start)}"
+            if self.total_pages and start is not None and doc.page >= start:
+                label += f" of {self.total_pages - start + 1}"
             canvas.drawRightString(PAGE_WIDTH - MARGIN_RIGHT, 12 * mm, label)
 
     def _draw_cover(self, canvas, doc):
@@ -862,8 +898,9 @@ def _imprint(meta: Meta, brand: Brand, styles: Styles) -> List:
     return story
 
 
-def _toc(styles: Styles) -> TableOfContents:
+def _toc(styles: Styles, body_start: Optional[int]) -> TableOfContents:
     toc = TableOfContents()
+    toc.formatter = lambda page: page_label(page, body_start)
     toc.levelStyles = [styles.toc1, styles.toc2]
     toc.dotsMinLevel = 0
     toc.tableStyle = TableStyle(
@@ -1003,6 +1040,7 @@ def _assemble(
     body_analysis: Analysis,
     rights_analysis: Analysis,
     refs: Dict[str, str],
+    body_start: Optional[int] = None,
 ) -> Tuple[List, List[str]]:
     body_story, images = _story(blocks, doc_dir, styles, meta.chapter_pages, body_analysis, refs)
     rights_story, _ = _story(rights_blocks, brand.rights_path.parent, styles, True, rights_analysis, refs)
@@ -1016,15 +1054,15 @@ def _assemble(
     story.append(ForcedBreak())
     if has_contents:
         story.append(Paragraph("Contents", styles.toc_title))
-        story.append(_toc(styles))
+        story.append(_toc(styles, body_start))
         story.append(ForcedBreak())
     if body_analysis.figure_entries or body_analysis.table_entries:
         if body_analysis.figure_entries:
             story.append(Paragraph("List of Figures", styles.list_heading))
-            story.append(_ListOf("LOFEntry", styles.list_entry))
+            story.append(_ListOf("LOFEntry", styles.list_entry, body_start))
         if body_analysis.table_entries:
             story.append(Paragraph("List of Tables", styles.list_heading))
-            story.append(_ListOf("LOTEntry", styles.list_entry))
+            story.append(_ListOf("LOTEntry", styles.list_entry, body_start))
         story.append(ForcedBreak())
     story.extend(body_story)
     if rights_story:
@@ -1079,15 +1117,22 @@ def render_document(
     try:
         total: Optional[int] = None
         header_map: Dict[int, str] = {}
+        body_start: Optional[int] = None
         for _attempt in range(MAX_LAYOUT_ATTEMPTS):
             story, images = _assemble(
-                blocks, rights_blocks, meta, brand, doc_dir, styles, body_analysis, rights_analysis, refs
+                blocks, rights_blocks, meta, brand, doc_dir, styles, body_analysis, rights_analysis, refs,
+                body_start,
             )
             buffer = io.BytesIO()
-            document = _Document(buffer, meta, brand, styles, total, header_map)
+            document = _Document(buffer, meta, brand, styles, total, header_map, body_start)
             document.multiBuild(story, maxPasses=6)
-            settled = document.page == total and document.header_map_next == header_map
+            settled = (
+                document.page == total
+                and document.header_map_next == header_map
+                and document.body_start_page == body_start
+            )
             total, header_map = document.page, document.header_map_next
+            body_start = document.body_start_page
             if settled:
                 break
         else:
@@ -1101,13 +1146,11 @@ def render_document(
             os.environ["SOURCE_DATE_EPOCH"] = previous_epoch
 
     body_start = document.body_start_page or (document.page + 1)
+    pdf_bytes = apply_xmp(buffer.getvalue(), meta, brand, f"Azimi Publishing Engine {__version__}")
     dpi = min(IMAGE_DPI) if IMAGE_DPI else None
     exempt = {page for page in range(1, body_start)} | set(document.forced_pages) | {document.page}
     return RenderResult(
-        pdf=buffer.getvalue(), pages=document.page, images=tuple(images), exempt_pages=tuple(sorted(exempt)),
+        pdf=pdf_bytes, pages=document.page, images=tuple(images), exempt_pages=tuple(sorted(exempt)),
         min_image_dpi=dpi, contrast=contrast_pairs(styles),
     )
 
-# XMP metadata foundation placeholder
-
-# Basic tagged PDF structure foundation (StructTreeRoot placeholder)
