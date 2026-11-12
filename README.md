@@ -1,6 +1,6 @@
 # Azimi Publishing Engine
 
-> # ACTIVE DEVELOPMENT - READY FOR ONE-COMMAND PDF PRODUCTION (v0.7.0 International Ready)
+> # ACTIVE DEVELOPMENT - UNFINISHED - PRODUCTION RELEASE DISABLED
 > The engine builds and audits PDFs from the terminal today. Several planned parts do not exist yet. The exact list is under Roadmap.
 
 Deterministic, standards-driven engine for producing publication-grade PDF documents.
@@ -13,7 +13,7 @@ Start with HANDBOOK.md. It explains what this project is and is not, how it work
 
 Azimi Publishing Engine turns a structured content folder into a branded PDF with a manifest and an audit report. It is built to typeset the 16-session Agentic AI Masterclass for senior engineers and later educational or commercial documents.
 
-## What works today (version 0.5.0, November 2026)
+## What works today (version 0.5.8, November 2026)
 
 - Strict input format with line-numbered errors; lint for forbidden terms, repeated words and course structure
 - Numbered chapters, sections, figures and tables with automatic cross-references, lists of figures and tables
