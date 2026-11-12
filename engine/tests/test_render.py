@@ -248,9 +248,12 @@ class FeatureTests(unittest.TestCase):
         self.assertIn("Contents", self.pages[2])
 
     def test_footer_shows_page_x_of_y(self):
-        total = len(self.pages)
-        self.assertIn(f"Page 3 of {total}", self.pages[2])
-        self.assertIn(f"Page {total} of {total}", self.pages[-1])
+        first_body = next(i for i, text in enumerate(self.pages) if "Page 1 of" in text)
+        body_pages = len(self.pages) - first_body
+        self.assertIn("Page ii", self.pages[1])
+        self.assertIn("Page iii", self.pages[2])
+        self.assertIn(f"Page 1 of {body_pages}", self.pages[first_body])
+        self.assertIn(f"Page {body_pages} of {body_pages}", self.pages[-1])
 
     def test_running_header_shows_the_current_chapter(self):
         first_chapter_page = next(i for i, text in enumerate(self.pages) if "Intro text" in text)
@@ -312,3 +315,64 @@ class FeatureTests(unittest.TestCase):
             (root / "brand" / "default" / "rights.md").write_text("# Rights\n\n**broken\n", encoding="utf-8")
             with self.assertRaisesRegex(ContentError, "in rights.md of brand default"):
                 build_document(root, "courses/doc")
+
+
+class PdfStandardsTests(unittest.TestCase):
+    """File level metadata and navigation: XMP, Producer, page labels, PageMode."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._project = TempProject()
+        cls.root = cls._project.__enter__()
+        cls.result = build_document(cls.root, "courses/doc")
+        cls.reader = read(cls.result.pdf_path)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._project.__exit__(None, None, None)
+
+    def test_producer_names_the_engine_version(self):
+        from engine import __version__
+
+        self.assertEqual(self.reader.metadata.producer, f"Azimi Publishing Engine {__version__}")
+
+    def test_page_mode_shows_the_outline(self):
+        self.assertEqual(str(self.reader.trailer["/Root"]["/PageMode"]), "/UseOutlines")
+
+    def test_page_labels_use_roman_front_matter_then_decimal(self):
+        labels = self.reader.page_labels
+        self.assertEqual(labels[:3], ["i", "ii", "iii"])
+        first_decimal = labels.index("1")
+        self.assertGreater(first_decimal, 2)
+        self.assertEqual(labels[first_decimal + 1], "2")
+        self.assertEqual(labels[-1], str(len(labels) - first_decimal))
+
+    def test_xmp_carries_title_author_language_and_rights(self):
+        import pikepdf
+
+        with pikepdf.open(io.BytesIO(self.result.pdf_path.read_bytes())) as pdf:
+            xmp = pdf.open_metadata()
+            self.assertEqual(xmp["dc:title"], "Agentic Systems Foundations")
+            self.assertEqual(list(xmp["dc:creator"]), ["Amin Azimi"])
+            self.assertIn("Copyright (c) 2026", xmp["dc:rights"])
+            self.assertTrue(xmp["pdf:Producer"].startswith("Azimi Publishing Engine"))
+            self.assertEqual(xmp["xmp:CreateDate"], "2026-11-01T00:00:00+00:00")
+
+    def test_xmp_makes_no_conformance_claim(self):
+        raw = self.result.pdf_path.read_bytes()
+        self.assertNotIn(b"pdfaid", raw)
+        self.assertNotIn(b"pdfuaid", raw)
+
+    def test_no_local_paths_or_placeholders_in_the_file(self):
+        raw = self.result.pdf_path.read_bytes()
+        for forbidden in (b"/Users/", b"/home/", b"placeholder", b"Placeholder"):
+            self.assertNotIn(forbidden, raw)
+
+    def test_outline_and_toc_links_survive_the_metadata_step(self):
+        self.assertTrue(outline_titles(self.reader))
+        links = sum(len(page.get("/Annots") or []) for page in self.reader.pages)
+        self.assertGreater(links, 0)
+
+    def test_two_builds_are_byte_identical(self):
+        again = build_document(self.root, "courses/doc")
+        self.assertEqual(again.pdf_path.read_bytes(), self.result.pdf_path.read_bytes())

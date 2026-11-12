@@ -299,15 +299,3 @@ def verify_document(project_root, document_dir) -> VerifyResult:
     if not report.passed:
         problems.append("the audit fails on the stored PDF")
     return VerifyResult(not problems, tuple(problems), report)
-
-
-def post_process_pdf(pdf_path: str) -> None:
-    """Add basic XMP using pikepdf."""
-    import pikepdf
-    with pikepdf.open(pdf_path, allow_overwriting_input=True) as pdf:
-        if pdf.docinfo is not None:
-            pdf.docinfo["/Producer"] = "Azimi Publishing Engine"
-        with pdf.open_metadata() as meta:
-            meta["dc:title"] = "Azimi Innovation Lab Publication"
-            meta["dc:creator"] = ["Amin Azimi"]
-        pdf.save(pdf_path)

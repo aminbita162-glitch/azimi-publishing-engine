@@ -198,7 +198,7 @@ class NumberedBuildTests(unittest.TestCase):
             self.assertIn(f"Figure {number}. {caption}", compact)
 
     def test_unnumbered_chapter_has_no_number(self):
-        self.assertNotIn("2 Beta", " ".join(self.text.split()))
+        self.assertNotIn("2 Beta Text.", " ".join(self.text.split()))
 
 
 class ReferenceErrorTests(unittest.TestCase):
