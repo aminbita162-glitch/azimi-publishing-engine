@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.8 - November 2026 (Cleanup)
+
+- README banner now states the real status (active development, unfinished, production release disabled); the earlier banner named a version that does not exist; the heading of the capabilities list shows the current version
+- Engine version identifiers in engine/__init__.py and pyproject.toml aligned with this changelog (they still said 0.5.3 while entries 0.5.4 to 0.5.7 existed); the version text printed in the PDF imprint and recorded in build manifests changes accordingly
+- Session 01 source folder metadata synchronized with the validated settings (version 2.5.0, chapter_pages true): the folder now builds 61 pages with audit 16 of 16, as recorded in TEST_LOG T-022; before this it failed audit A7 on the previous metadata; the duplicate validation folder courses/ape-v2-5-0-87-cpgmre9g is unchanged and its future is an open owner decision
+- Removed engine/render/frontmatter_patch.py: four constants that nothing imported or used
+- No change to rendering, audit, release security, brand, agents or tests; release delivery remains hard-disabled
+
 ## 0.5.7 - November 2026 (Phase 6)
 
 - Release security threat model and current-state audit: evidence/phase6_threat_model.md documents assets, principals, trust boundaries, attackers, failure modes, filesystem attacks, replay/rollback/substitution threats, existing controls inventory (15 modules, 13 test files, ~61 release-security test cases) and the release fail-closed invariant
