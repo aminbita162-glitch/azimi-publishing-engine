@@ -64,6 +64,30 @@ def reference_ids(text: str) -> List[str]:
     return _REFERENCE.findall("".join(masked))
 
 
+NBSP = "\u00a0"
+_OPENERS = "([{\u2013\u2014"
+
+
+def _opens_quote(text: str, index: int) -> bool:
+    """True when a quote mark at index starts a quotation (start of text, after a space or an opening bracket)."""
+    position = index - 1
+    while position >= 0 and text[position] in "*`":
+        position -= 1
+    return position < 0 or text[position].isspace() or text[position] in _OPENERS
+
+
+def _typeset_char(text: str, index: int) -> str:
+    """Typographic form of one prose character: curly quotes, apostrophes and the spaced dash."""
+    char = text[index]
+    if char == '"':
+        return "\u201c" if _opens_quote(text, index) else "\u201d"
+    if char == "'":
+        return "\u2018" if _opens_quote(text, index) else "\u2019"
+    if char == "-" and index > 0 and text[index - 1] == " " and text[index + 1:index + 2] == " ":
+        return "\u2013"
+    return char
+
+
 def to_markup(text: str, line: Optional[int] = None, refs: Optional[Dict[str, str]] = None) -> str:
     """Return paragraph markup for text, or raise ContentError for unbalanced markers.
 
@@ -129,7 +153,7 @@ def to_markup(text: str, line: Optional[int] = None, refs: Optional[Dict[str, st
             index += width
             continue
 
-        out.append(_escape(char))
+        out.append(_escape(_typeset_char(text, index)))
         index += 1
 
     if stack:

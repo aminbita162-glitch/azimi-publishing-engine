@@ -127,15 +127,15 @@ class AnalysisTests(unittest.TestCase):
         analysis = analyze(parse(DOC), True)
         numbers = [analysis.headings[i] for i, b in enumerate(parse(DOC)) if isinstance(b, Heading)]
         self.assertEqual(numbers, ["1", "1.1", None])
-        self.assertEqual(analysis.refs["alpha"], "Chapter 1")
-        self.assertEqual(analysis.refs["part-one"], "Section 1.1")
-        self.assertEqual(analysis.refs["fig-flow"], "Figure 1")
-        self.assertEqual(analysis.refs["tab-one"], "Table 1")
+        self.assertEqual(analysis.refs["alpha"], "Chapter\u00a01")
+        self.assertEqual(analysis.refs["part-one"], "Section\u00a01.1")
+        self.assertEqual(analysis.refs["fig-flow"], "Figure\u00a01")
+        self.assertEqual(analysis.refs["tab-one"], "Table\u00a01")
         self.assertEqual(len(analysis.figure_entries), 3)
 
     def test_without_numbering_sections_are_quoted(self):
         analysis = analyze(parse("# Alpha {#alpha}\n"), False)
-        self.assertEqual(analysis.refs["alpha"], '"Alpha"')
+        self.assertEqual(analysis.refs["alpha"], "\u201cAlpha\u201d")
 
     def test_duplicate_ids_are_rejected(self):
         with self.assertRaises(ContentError):

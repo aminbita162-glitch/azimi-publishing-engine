@@ -346,7 +346,7 @@ def audit_pdf(
     # A10 figure and table numbers are continuous
     problems = []
     for label in ("Figure", "Table"):
-        numbers = sorted({int(n) for text in texts for n in re.findall(rf"(?m)^{label} (\d+)\. ", text)})
+        numbers = sorted({int(n) for text in texts for n in re.findall(rf"(?m)^{label}[ \u00a0](\d+)\. ", text)})
         if numbers and numbers != list(range(1, numbers[-1] + 1)):
             problems.append(f"{label} numbers are {numbers}")
     add("A10", "Figure and table numbers are continuous", problems, "numbering has no gaps")
