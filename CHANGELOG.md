@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.9 - November 2026 (PDF standards, metadata and navigation)
+
+- XMP metadata packet in every PDF (title, author, description, language, rights, producer, creator tool, fixed dates from the document month); written with pikepdf; no conformance claim of any kind
+- Producer is now "Azimi Publishing Engine <version>"; PageMode UseOutlines opens the outline panel
+- PDF page labels: lowercase roman numerals for the front matter, decimal numbers from 1 at the first chapter; printed footers and the contents, list of figures and list of tables use the same labels
+- Removed the unused function post_process_pdf and two placeholder comments
+- New dependency pikepdf (pinned in requirements.txt, listed in THIRD_PARTY_NOTICES.md); 8 new tests, 2 test assertions updated for the new page numbering
+- Not included: tagged PDF structure; release delivery remains hard-disabled
+
 ## 0.5.8 - November 2026 (Cleanup)
 
 - README banner now states the real status (active development, unfinished, production release disabled); the earlier banner named a version that does not exist; the heading of the capabilities list shows the current version
