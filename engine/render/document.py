@@ -137,6 +137,26 @@ class ForcedBreak(PageBreak):
     """A page break that is intentional; the audit does not count its page as underfilled."""
 
 
+class _ContinuationTable(Table):
+    """A table that propagates its continuation-group id to split parts.
+
+    When a table or code block splits across pages, the split parts are new
+    Table objects that do not carry the original's attributes.  This subclass
+    copies ``_continuation_group`` onto every part returned by ``split`` so the
+    document can track which pages a single logical block spans.
+    """
+
+    _continuation_group: Optional[str] = None
+
+    def split(self, available_width, available_height):
+        parts = super().split(available_width, available_height)
+        group = getattr(self, "_continuation_group", None)
+        if group is not None:
+            for part in parts:
+                part._continuation_group = group  # type: ignore[attr-defined]
+        return parts
+
+
 class CaptionParagraph(Paragraph):
     """A table caption that is also an entry of the list of tables."""
 
@@ -290,6 +310,9 @@ class _Document(BaseDocTemplate):
         self._start_chapter: Dict[int, str] = {}
         self._header_override: Dict[int, str] = {}
         self._count_on_page: Dict[int, int] = {}
+        self._continuation_groups: Dict[str, list] = {}
+        self._continued_bottom_pages: set = set()
+        self._continued_top_pages: set = set()
 
         cover_frame = Frame(
             MARGIN_LEFT, MARGIN_BOTTOM, CONTENT_WIDTH, PAGE_HEIGHT - 40 * mm - MARGIN_BOTTOM,
@@ -320,6 +343,16 @@ class _Document(BaseDocTemplate):
             canvas.addPageLabel(0, style="ARABIC", start=1)
 
     def handle_documentBegin(self):
+        # Compute continuation marker pages from the previous pass's data.
+        bottom, top = set(), set()
+        for group, pages in self._continuation_groups.items():
+            unique = sorted(set(pages))
+            if len(unique) >= 2:
+                bottom.update(unique[:-1])
+                top.update(unique[1:])
+        self._continued_bottom_pages = bottom
+        self._continued_top_pages = top
+        self._continuation_groups = {}
         self._heading_count = 0
         self._chapter = ""
         self._start_chapter = {}
@@ -331,6 +364,9 @@ class _Document(BaseDocTemplate):
 
     def afterFlowable(self, flowable):
         page = self.page
+        group = getattr(flowable, "_continuation_group", None)
+        if group is not None:
+            self._continuation_groups.setdefault(group, []).append(page)
         if isinstance(flowable, ForcedBreak):
             # A ForcedBreak ends the current page and starts a new one.
             # When chapter_pages is enabled, both the chapter-end page
@@ -422,6 +458,15 @@ class _Document(BaseDocTemplate):
         canvas.line(MARGIN_LEFT, top - 2.6 * mm, PAGE_WIDTH - MARGIN_RIGHT, top - 2.6 * mm)
         canvas.setFillColor(self.styles.accent)
         canvas.rect(MARGIN_LEFT, top - 3.2 * mm, 18 * mm, 1.2 * mm, stroke=0, fill=1)
+        # Continuation markers (structural, drawn in the margin area, not counted as body fill)
+        if doc.page in self._continued_top_pages:
+            canvas.setFont("Body-Italic", 8)
+            canvas.setFillColor(MUTED)
+            canvas.drawString(MARGIN_LEFT, PAGE_HEIGHT - MARGIN_TOP + 4, "continued from previous page")
+        if doc.page in self._continued_bottom_pages:
+            canvas.setFont("Body-Italic", 8)
+            canvas.setFillColor(MUTED)
+            canvas.drawRightString(PAGE_WIDTH - MARGIN_RIGHT, MARGIN_BOTTOM - 4, "continued on next page")
         self._footer(canvas, doc)
         canvas.restoreState()
 
@@ -455,7 +500,7 @@ def _wrap_with_classes(text: str, classes: Sequence[str], limit: int) -> List[Tu
     return pieces
 
 
-def _code_flowables(block: Code, styles: Styles) -> List:
+def _code_flowables(block: Code, styles: Styles, group_id: str) -> List:
     language = normalize_language(block.language)
     lines = [line.expandtabs(4).rstrip() for line in block.lines] or [""]
     for text in lines:
@@ -485,7 +530,7 @@ def _code_flowables(block: Code, styles: Styles) -> List:
         bottom = CODE_PADDING_VERTICAL if index == len(chunks) - 1 else 0
         if numbered:
             numbers = "\n".join(f"{number:>{digits}}" if number else "" for number, _, _ in chunk)
-            table = Table(
+            table = _ContinuationTable(
                 [[XPreformatted(numbers, styles.code_number), code_cell]],
                 colWidths=[gutter_width, CONTENT_WIDTH - gutter_width],
                 hAlign="LEFT",
@@ -500,7 +545,7 @@ def _code_flowables(block: Code, styles: Styles) -> List:
                 ("LINEAFTER", (0, 0), (0, -1), 0.5, RULE),
             ]
         else:
-            table = Table([[code_cell]], colWidths=[CONTENT_WIDTH], hAlign="LEFT")
+            table = _ContinuationTable([[code_cell]], colWidths=[CONTENT_WIDTH], hAlign="LEFT")
             commands = [
                 ("BACKGROUND", (0, 0), (-1, -1), CODE_BACKGROUND),
                 ("LEFTPADDING", (0, 0), (-1, -1), CODE_PADDING_LEFT),
@@ -518,6 +563,7 @@ def _code_flowables(block: Code, styles: Styles) -> List:
                 + commands
             )
         )
+        table._continuation_group = group_id
         tables.append(table)
     label = Paragraph(to_markup(block.language.upper()), styles.code_label)
     return [label] + tables + [Spacer(1, 12)]
@@ -562,7 +608,7 @@ def _column_widths(header: Sequence[str], rows: Sequence[Sequence[str]]) -> List
     return widths
 
 
-def _table_flowable(block: TableBlock, styles: Styles, refs: Dict[str, str]) -> Table:
+def _table_flowable(block: TableBlock, styles: Styles, refs: Dict[str, str]) -> _ContinuationTable:
     for cell in list(block.header) + [c for row in block.rows for c in row]:
         check_glyphs(cell, "Body", block.line)
     header_styles = [styles.aligned(styles.table_header, a) for a in block.align]
@@ -570,7 +616,7 @@ def _table_flowable(block: TableBlock, styles: Styles, refs: Dict[str, str]) -> 
     data = [[Paragraph(to_markup(text, block.line, refs), header_styles[i]) for i, text in enumerate(block.header)]]
     for row in block.rows:
         data.append([Paragraph(to_markup(text, block.line, refs), cell_styles[i]) for i, text in enumerate(row)])
-    table = Table(data, colWidths=_column_widths(block.header, block.rows), repeatRows=1, hAlign="LEFT")
+    table = _ContinuationTable(data, colWidths=_column_widths(block.header, block.rows), repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
@@ -959,6 +1005,38 @@ def _heading_markup(block: Heading, number: Optional[str]) -> Tuple[str, str]:
     return f"{anchor}{markup}", plain
 
 
+def _keep_intro_with_visual(
+    story: List, blocks: Sequence[Block], position: int, visual_flowables: List
+) -> List:
+    """Keep short intro paragraphs with their visual.
+
+    When a ParagraphBlock (or up to 3 consecutive ParagraphBlocks, each
+    <= 240 characters) is immediately followed by an ImageBlock or
+    DiagramBlock, set ``keepWithNext`` on the last qualifying paragraph so
+    it stays with the visual, and insert a ``CondPageBreak`` that ensures the
+    page has enough fill before the group.  Tables and code blocks are never
+    wrapped here.  The earlier paragraphs are not given ``keepWithNext`` so
+    they remain on the current page and maintain fill, preventing A7
+    failure when the visual is too tall to fit alongside them.
+    """
+    count = 0
+    for back in range(1, min(4, position + 1)):
+        prev = blocks[position - back]
+        if isinstance(prev, ParagraphBlock) and len(prev.text) <= KEEP_WITH_NEXT_MAX:
+            count = back
+        else:
+            break
+    if count == 0 or count > len(story):
+        return visual_flowables
+    intros = story[-count:]
+    if not all(isinstance(f, Paragraph) for f in intros):
+        return visual_flowables
+    del story[-count:]
+    last = intros[-1]
+    last.style = ParagraphStyle("BodyKeepVisual", parent=last.style, keepWithNext=1)
+    return [CondPageBreak(HEADING_TABLE_MIN_SPACE)] + intros + visual_flowables
+
+
 def _story(
     blocks: Sequence[Block],
     doc_dir: Path,
@@ -1009,17 +1087,21 @@ def _story(
         elif isinstance(block, NumberedList):
             story.extend(_list_flowable(block, styles, True, refs))
         elif isinstance(block, Code):
-            story.extend(_code_flowables(block, styles))
+            story.extend(_code_flowables(block, styles, f"code-{position}"))
         elif isinstance(block, TableBlock):
             number = analysis.tables.get(position)
             if number is not None:
                 story.append(_table_caption(block, styles, number, refs))
-            story.append(_table_flowable(block, styles, refs))
+            table = _table_flowable(block, styles, refs)
+            table._continuation_group = f"table-{position}"
+            story.append(table)
             story.append(Spacer(1, 12))
         elif isinstance(block, ImageBlock):
-            story.extend(_image_flowable(block, doc_dir, styles, analysis.figures.get(position), images, refs))
+            vis = _image_flowable(block, doc_dir, styles, analysis.figures.get(position), images, refs)
+            story.extend(_keep_intro_with_visual(story, blocks, position, vis))
         elif isinstance(block, DiagramBlock):
-            story.extend(_diagram_flowable(block, styles, analysis.figures.get(position), refs))
+            vis = _diagram_flowable(block, styles, analysis.figures.get(position), refs)
+            story.extend(_keep_intro_with_visual(story, blocks, position, vis))
         elif isinstance(block, Callout):
             story.append(_callout_flowable(block, styles, refs))
             story.append(Spacer(1, 12))

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.11 - November 2026 (Layout keep-together, continuation markers, review command)
+
+- Intro paragraphs (up to 3 consecutive, each ≤ 240 characters) immediately before an image or diagram are kept with the visual via keepWithNext on the last qualifying paragraph and a CondPageBreak before the group; tables and code blocks are not wrapped; existing scale logic applies when the visual does not fit on a fresh page
+- Continuation markers: when a code block or table splits across pages, a small muted "continued on next page" label appears at the bottom of the first page and "continued from previous page" at the top of the continuation page; markers are drawn in the margin area (not counted as body fill) and never cause A7 failure; table header repetition preserved
+- Unified review command: python3 -m engine review courses/NAME runs check, build, verify and full audit in order, stopping on hard failure, producing a human-readable summary and a machine-readable JSON report (status per step, exit codes, key metrics) in the build folder
+- 12 new tests: 6 keep-together (positive figure, positive diagram, negative >240 chars, negative 4th paragraph, chain break by non-paragraph, unit count limit), 4 continuation markers (code split, table split, A7 integrity, no markers when fitting), 2 review command (success with JSON report, lint failure exit 2)
+- No change to release security, brand or agents; release delivery remains hard-disabled
+
 ## 0.5.10 - November 2026 (Typography)
 
 - Curly double and single quotation marks and apostrophes in running text, and an en dash for a spaced hyphen; applied by the renderer only, the content files are unchanged; never applied in code blocks, inline code or URLs

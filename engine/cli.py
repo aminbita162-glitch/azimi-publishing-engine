@@ -30,6 +30,20 @@ def _relative_to_root(root: Path, argument: str) -> str:
     raise EngineError("document folder must be inside the project")
 
 
+def _write_review_report(project_root: Path, relative: str, steps: list, build_dir: str, json_module, overall: bool = True) -> None:
+    """Write a machine-readable JSON review report to the document's build folder."""
+    report = {
+        "command": "review",
+        "path": relative,
+        "steps": steps,
+        "overall": "PASS" if overall else "FAIL",
+    }
+    report_path = Path(project_root) / relative / build_dir / "review-report.json"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json_module.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"Report    : {report_path}")
+
+
 def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
     parser = argparse.ArgumentParser(prog="python3 -m engine", description="Azimi Publishing Engine")
     parser.add_argument("-V", "-v", action="version", version=f"Azimi Publishing Engine {__version__}")
@@ -40,6 +54,8 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
     check.add_argument("path")
     verify = commands.add_parser("verify", help="check a built PDF against its manifest and run the audit again")
     verify.add_argument("path")
+    review = commands.add_parser("review", help="check, build, verify and audit a document in one step")
+    review.add_argument("path")
     new = commands.add_parser("new", help="create a new document folder")
     new.add_argument("path")
     new.add_argument("--title", required=True)
@@ -91,6 +107,70 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
             report = outcome.audit
             print(f"Verify    : {'PASS' if outcome.ok else 'FAIL'} (audit {sum(c.passed for c in report.checks)}/{len(report.checks)})")
             return 0 if outcome.ok else 3
+        if args.command == "review":
+            import json as _json
+
+            from .build.builder import BUILD_DIR
+
+            steps: list = []
+            # Step 1: check
+            try:
+                problems, pages = check_document(project_root, relative)
+            except EngineError as exc:
+                steps.append({"step": "check", "status": "FAIL", "error": str(exc), "exit_code": 2})
+                print(f"Check     : FAIL ({exc})")
+                _write_review_report(project_root, relative, steps, BUILD_DIR, _json, overall=False)
+                return 2
+            check_ok = not problems
+            steps.append({"step": "check", "status": "PASS" if check_ok else "FAIL",
+                          "exit_code": 0 if check_ok else 2,
+                          "pages": pages, "lint_problems": len(problems)})
+            for issue in problems:
+                print(f"lint  {issue}")
+            print(f"Check     : {'PASS' if check_ok else 'FAIL'} ({pages} pages, {len(problems)} lint problems)")
+            if not check_ok:
+                _write_review_report(project_root, relative, steps, BUILD_DIR, _json)
+                return 2
+            # Step 2: build
+            result = build_document(project_root, relative)
+            audit_ok = result.audit.passed
+            steps.append({"step": "build", "status": "PASS" if audit_ok else "FAIL",
+                          "exit_code": 0 if audit_ok else 3,
+                          "pages": result.pages, "sha256": result.sha256,
+                          "audit_checks": sum(c.passed for c in result.audit.checks)})
+            print(f"PDF       : {result.pdf_path}")
+            print(f"Manifest  : {result.manifest_path}")
+            print(f"Pages     : {result.pages}")
+            print(f"SHA-256   : {result.sha256}")
+            print(f"Audit     : {'PASS' if audit_ok else 'FAIL'} ({sum(c.passed for c in result.audit.checks)}/{len(result.audit.checks)} checks)")
+            if not audit_ok:
+                for check in result.audit.checks:
+                    if not check.passed:
+                        print(f"  {check.id} {check.status}  {check.name}: {check.detail}")
+                print("error: the audit failed; the document must not be released", file=sys.stderr)
+                _write_review_report(project_root, relative, steps, BUILD_DIR, _json)
+                return 3
+            # Step 3: verify
+            outcome = verify_document(project_root, relative)
+            verify_ok = outcome.ok
+            steps.append({"step": "verify", "status": "PASS" if verify_ok else "FAIL",
+                          "exit_code": 0 if verify_ok else 3,
+                          "verify_problems": len(outcome.problems),
+                          "audit_checks": sum(c.passed for c in outcome.audit.checks)})
+            for problem in outcome.problems:
+                print(f"problem   : {problem}")
+            print(f"Verify     : {'PASS' if verify_ok else 'FAIL'} (audit {sum(c.passed for c in outcome.audit.checks)}/{len(outcome.audit.checks)})")
+            # Step 4: full audit
+            steps.append({"step": "audit", "status": "PASS" if outcome.audit.passed else "FAIL",
+                          "exit_code": 0 if outcome.audit.passed else 3,
+                          "checks": [{"id": c.id, "name": c.name, "status": c.status, "detail": c.detail}
+                                     for c in outcome.audit.checks]})
+            for check in outcome.audit.checks:
+                print(f"  {check.id} {check.status}  {check.name}: {check.detail}")
+            overall_ok = check_ok and audit_ok and verify_ok and outcome.audit.passed
+            _write_review_report(project_root, relative, steps, BUILD_DIR, _json, overall_ok)
+            print(f"Review     : {'PASS' if overall_ok else 'FAIL'}")
+            return 0 if overall_ok else 3
         if args.command == "new":
             folder = scaffold_document(project_root, relative, args.title, args.author)
             print(f"Created   : {folder}")

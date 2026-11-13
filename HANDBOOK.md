@@ -100,8 +100,9 @@ The tests must pass before you build anything.
 7. Read the audit lines. All 16 must be PASS. The PDF is in courses/my-document/build.
 8. Look at pages: python3 -m engine preview courses/my-document --pages 1,2,3
 9. Later, prove the file is unchanged: python3 -m engine verify courses/my-document
-10. Deliver a draft copy: python3 -m engine deliver draft courses/my-document (goes to the Drafts folder of the output folder, after a passing verify).
-11. Release: the owner writes a file RELEASE_APPROVAL.txt in the document folder with one line, APPROVED followed by the SHA-256 of the PDF, then runs python3 -m engine deliver release courses/my-document. A release is never overwritten with different content.
+10. Check, build, verify and audit in one step: python3 -m engine review courses/my-document (writes a JSON report to the build folder)
+11. Deliver a draft copy: python3 -m engine deliver draft courses/my-document (goes to the Drafts folder of the output folder, after a passing verify).
+12. Release: the owner writes a file RELEASE_APPROVAL.txt in the document folder with one line, APPROVED followed by the SHA-256 of the PDF, then runs python3 -m engine deliver release courses/my-document. A release is never overwritten with different content.
 
 Exit status: 0 success, 2 input error, 3 audit failure.
 

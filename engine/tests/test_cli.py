@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import unittest
 
 from engine.cli import main
@@ -67,6 +68,31 @@ class CliTests(unittest.TestCase):
             code, _, err = self.run_cli(["build", str(root / "courses" / "doc")], root)
             self.assertEqual(code, 2)
             self.assertIn("error: line 3: emphasis is not closed", err)
+
+    def test_review_success(self):
+        with TempProject() as root:
+            code, out, err = self.run_cli(["review", str(root / "courses" / "doc")], root)
+            self.assertEqual(code, 0, err)
+            self.assertIn("Check     : PASS", out)
+            self.assertIn("Audit     : PASS", out)
+            self.assertIn("Verify     : PASS", out)
+            self.assertIn("Review     : PASS", out)
+            report_path = root / "courses" / "doc" / "build" / "review-report.json"
+            self.assertTrue(report_path.is_file(), "review-report.json should exist")
+            report = json.loads(report_path.read_text())
+            self.assertEqual(report["command"], "review")
+            self.assertEqual(report["overall"], "PASS")
+            self.assertEqual(len(report["steps"]), 4)
+            self.assertEqual(report["steps"][0]["step"], "check")
+            self.assertEqual(report["steps"][1]["step"], "build")
+            self.assertEqual(report["steps"][2]["step"], "verify")
+            self.assertEqual(report["steps"][3]["step"], "audit")
+
+    def test_review_lint_failure_exit_two(self):
+        with TempProject(content="# T\n\n**bad\n", with_image=False) as root:
+            code, out, err = self.run_cli(["review", str(root / "courses" / "doc")], root)
+            self.assertEqual(code, 2, err)
+            self.assertIn("Check     : FAIL", out)
 
 
 if __name__ == "__main__":
