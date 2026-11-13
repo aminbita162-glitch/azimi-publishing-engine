@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import io
 import os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -48,11 +49,13 @@ from ..build.parser import (
     Callout,
     Code,
     Diagram as DiagramBlock,
+    Glossary,
     Heading,
     Image as ImageBlock,
     NumberedList,
     PageBreak as PageBreakBlock,
     Paragraph as ParagraphBlock,
+    References,
     Table as TableBlock,
 )
 from .. import __version__
@@ -110,6 +113,81 @@ MAX_LAYOUT_ATTEMPTS = 5
 MAX_PIXELS = 40_000_000
 CONTINUATION_INDENT = "  "
 KEEP_WITH_NEXT_MAX = 240
+
+
+def _glossary_slug(term: str) -> str:
+    """Slug for a glossary term: lowercase, hyphens for non-alphanumeric."""
+    return re.sub(r"[^a-z0-9]+", "-", term.lower()).strip("-")
+
+
+def _replace_glossary_terms(text: str, glossary: Dict[str, str]) -> str:
+    """Replace whole-word glossary term occurrences with [[gloss-slug]] references.
+
+    Skips inline code (backtick-delimited) and existing [[...]] references.
+    """
+    if not glossary:
+        return text
+    # Longest terms first to avoid partial replacements.
+    terms = sorted(glossary.items(), key=lambda kv: len(kv[0]), reverse=True)
+    # Split into segments: inline code, existing references, and normal text.
+    parts: List[Tuple[str, str]] = []
+    i = 0
+    size = len(text)
+    while i < size:
+        if text[i] == "`":
+            end = text.find("`", i + 1)
+            if end != -1:
+                parts.append(("code", text[i : end + 1]))
+                i = end + 1
+                continue
+        if text[i : i + 2] == "[[":
+            end = text.find("]]", i + 2)
+            if end != -1:
+                parts.append(("ref", text[i : end + 2]))
+                i = end + 2
+                continue
+        start = i
+        while i < size:
+            if text[i] == "`" or text[i : i + 2] == "[[":
+                break
+            i += 1
+        parts.append(("text", text[start:i]))
+    result: List[str] = []
+    for kind, segment in parts:
+        if kind == "text":
+            for term_lower, slug in terms:
+                pattern = re.compile(r"\b" + re.escape(term_lower) + r"\b", re.IGNORECASE)
+                segment = pattern.sub(f"[[gloss-{slug}]]", segment)
+        result.append(segment)
+    return "".join(result)
+
+
+def _preprocess_glossary(
+    blocks: Sequence[Block], glossary: Dict[str, str]
+) -> List[Block]:
+    """Return blocks with glossary term occurrences replaced by [[gloss-slug]] references.
+
+    Only Paragraph, Callout, BulletList and NumberedList blocks are modified;
+    headings, code, tables, images, diagrams, references and glossary blocks are untouched.
+    """
+    if not glossary:
+        return list(blocks)
+    out: List[Block] = []
+    for block in blocks:
+        if isinstance(block, ParagraphBlock):
+            new_text = _replace_glossary_terms(block.text, glossary)
+            out.append(replace(block, text=new_text) if new_text != block.text else block)
+        elif isinstance(block, Callout):
+            new_text = _replace_glossary_terms(block.text, glossary)
+            out.append(replace(block, text=new_text) if new_text != block.text else block)
+        elif isinstance(block, (BulletList, NumberedList)):
+            new_items = tuple(
+                _replace_glossary_terms(item, glossary) for item in block.items
+            )
+            out.append(replace(block, items=new_items) if new_items != block.items else block)
+        else:
+            out.append(block)
+    return out
 
 
 @dataclass(frozen=True)
@@ -919,6 +997,8 @@ def _imprint(meta: Meta, brand: Brand, styles: Styles) -> List:
         ("PUBLISHER", brand.display_name),
         ("INTENDED READERS", meta.audience),
     ]
+    if meta.series and meta.series_number is not None:
+        entries.append(("SERIES", f"Series: {meta.series} \u2014 Document {meta.series_number}"))
     for label, value in entries:
         story.append(Paragraph(label, styles.imprint_label))
         story.append(Paragraph(to_markup(value), styles.imprint_text))
@@ -1105,6 +1185,10 @@ def _story(
         elif isinstance(block, Callout):
             story.append(_callout_flowable(block, styles, refs))
             story.append(Spacer(1, 12))
+        elif isinstance(block, References):
+            pass  # rendered in _assemble before the rights chapter
+        elif isinstance(block, Glossary):
+            pass  # rendered in _assemble before the rights chapter
         elif isinstance(block, PageBreakBlock):
             _break_page(story)
         else:  # pragma: no cover - guarded by the parser's closed set of block types
@@ -1123,6 +1207,7 @@ def _assemble(
     rights_analysis: Analysis,
     refs: Dict[str, str],
     body_start: Optional[int] = None,
+    version_history_blocks: Optional[Sequence[Block]] = None,
 ) -> Tuple[List, List[str]]:
     body_story, images = _story(blocks, doc_dir, styles, meta.chapter_pages, body_analysis, refs)
     rights_story, _ = _story(rights_blocks, brand.rights_path.parent, styles, True, rights_analysis, refs)
@@ -1147,6 +1232,45 @@ def _assemble(
             story.append(_ListOf("LOTEntry", styles.list_entry, body_start))
         story.append(ForcedBreak())
     story.extend(body_story)
+
+    # --- C5.2: References section (rendered at end of body, before rights chapter) ---
+    ref_blocks = [b for b in blocks if isinstance(b, References)]
+    if ref_blocks:
+        story.append(ForcedBreak())
+        story.append(Paragraph("References", styles.h1))
+        for rb in ref_blocks:
+            ref_items = tuple(
+                (f"{text} {url}" if url else text) for text, url in rb.items
+            )
+            list_block = NumberedList(line=rb.line, items=ref_items)
+            story.extend(_list_flowable(list_block, styles, True, refs))
+
+    # --- C5.6: Glossary section (rendered before rights chapter) ---
+    gloss_blocks = [b for b in blocks if isinstance(b, Glossary)]
+    if gloss_blocks:
+        story.append(ForcedBreak())
+        story.append(Paragraph("Glossary", styles.h1))
+        for gb in gloss_blocks:
+            for term, definition in gb.entries:
+                slug = _glossary_slug(term)
+                anchor = f'<a name="gloss-{slug}"/>'
+                term_markup = to_markup(term, gb.line)
+                def_markup = to_markup(definition, gb.line, refs)
+                story.append(
+                    Paragraph(f"{anchor}<b>{term_markup}</b> — {def_markup}", styles.body)
+                )
+            story.append(Spacer(1, 4))
+
+    # --- C5.5: Version history section (rendered before rights chapter) ---
+    if version_history_blocks:
+        story.append(ForcedBreak())
+        story.append(Paragraph("Version History", styles.h1))
+        vh_analysis = analyze(version_history_blocks, False, refs)
+        vh_story, _ = _story(
+            version_history_blocks, doc_dir, styles, False, vh_analysis, refs
+        )
+        story.extend(vh_story)
+
     if rights_story:
         story.append(ForcedBreak())
         story.extend(rights_story)
@@ -1175,19 +1299,48 @@ def render_document(
     brand: Brand,
     doc_dir: Path,
     rights_blocks: Sequence[Block],
+    version_history_blocks: Optional[Sequence[Block]] = None,
 ) -> RenderResult:
     """Render blocks to PDF bytes. Fonts must already be registered."""
     for text in (
         meta.title, meta.subtitle or "", meta.author, meta.audience, meta.date, brand.display_name, brand.tagline or "",
     ):
         check_glyphs(text, "Body")
+    if meta.series:
+        check_glyphs(meta.series, "Body")
 
     styles = build_styles(brand)
     IMAGE_DPI.clear()
+
+    # --- C5.6: Extract glossary terms and build refs for term linking ---
+    glossary: Dict[str, str] = {}
+    for block in blocks:
+        if isinstance(block, Glossary):
+            for term, _definition in block.entries:
+                slug = _glossary_slug(term)
+                glossary[term.lower()] = slug
+
     body_analysis = analyze(blocks, meta.numbered)
     rights_analysis = analyze(rights_blocks, False, body_analysis.refs)
     refs = {**body_analysis.refs, **rights_analysis.refs}
-    validate_inline(blocks, refs)
+    # Add glossary refs so [[gloss-slug]] references resolve.
+    for term_lower, slug in glossary.items():
+        ref_key = f"gloss-{slug}"
+        if ref_key not in refs:
+            # Find the original-case term for display.
+            original = term_lower
+            for block in blocks:
+                if isinstance(block, Glossary):
+                    for term, _def in block.entries:
+                        if term.lower() == term_lower:
+                            original = term
+                            break
+            refs[ref_key] = original
+
+    # Pre-process body blocks: replace glossary term occurrences with [[gloss-slug]].
+    processed_blocks = _preprocess_glossary(blocks, glossary)
+
+    validate_inline(processed_blocks, refs)
     validate_inline(rights_blocks, refs)
 
     previous_epoch = os.environ.get("SOURCE_DATE_EPOCH")
@@ -1202,8 +1355,9 @@ def render_document(
         body_start: Optional[int] = None
         for _attempt in range(MAX_LAYOUT_ATTEMPTS):
             story, images = _assemble(
-                blocks, rights_blocks, meta, brand, doc_dir, styles, body_analysis, rights_analysis, refs,
-                body_start,
+                processed_blocks, rights_blocks, meta, brand, doc_dir, styles,
+                body_analysis, rights_analysis, refs,
+                body_start, version_history_blocks,
             )
             buffer = io.BytesIO()
             document = _Document(buffer, meta, brand, styles, total, header_map, body_start)

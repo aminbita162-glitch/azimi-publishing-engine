@@ -7,10 +7,12 @@ import json
 import os
 import platform
 import re
+import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, List, Optional, Union
 
 import reportlab
 
@@ -23,11 +25,15 @@ from ..paths import resolve_inside
 from ..render.document import render_document, validate_inline
 from ..render.fonts import register_fonts
 from ..schemas.meta import load_meta
-from .parser import Code, Diagram, Heading, Image, Table, parse
+from ..schemas.findings import load_findings_if_present
+from .parser import Code, Diagram, Glossary, Heading, Image, References, Table, parse
 
 MAX_CONTENT_BYTES = 2 * 1024 * 1024
 BUILD_DIR = "build"
 MANIFEST_SUFFIX = ".manifest.json"
+TEST_TIMEOUT = 10
+MAX_TEST_OUTPUT = 500
+MAX_VH_BLOCKS = 30
 
 
 @dataclass(frozen=True)
@@ -104,6 +110,61 @@ def _text_hash(pdf: bytes) -> str:
     return sha256_bytes(text.encode("utf-8"))
 
 
+def _execute_test_blocks(blocks: List) -> List[Dict]:
+    """Execute Code blocks whose language is exactly 'test' in a restricted subprocess.
+
+    Returns a list of result dicts with language, exit_code, stdout, stderr and line.
+    Raises ContentError if any test block exits non-zero (the build fails).
+    Never executes blocks of any other language.
+    """
+    results: List[Dict] = []
+    for block in blocks:
+        if not (isinstance(block, Code) and block.language == "test"):
+            continue
+        code = "\n".join(block.lines)
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-c", code],
+                capture_output=True,
+                text=True,
+                timeout=TEST_TIMEOUT,
+                env={"PATH": os.environ.get("PATH", "")},
+            )
+        except subprocess.TimeoutExpired:
+            raise ContentError(
+                f"test block at line {block.line} timed out after {TEST_TIMEOUT}s", block.line
+            )
+        output = (proc.stderr or proc.stdout or "").strip()
+        result = {
+            "language": "test",
+            "line": block.line,
+            "exit_code": proc.returncode,
+            "stdout": (proc.stdout or "")[:MAX_TEST_OUTPUT],
+            "stderr": (proc.stderr or "")[:MAX_TEST_OUTPUT],
+        }
+        results.append(result)
+        if proc.returncode != 0:
+            raise ContentError(
+                f"test block at line {block.line} exited with code {proc.returncode}: {output}",
+                block.line,
+            )
+    return results
+
+
+def _load_version_history(folder: Path) -> Optional[tuple]:
+    """Return (filename, blocks) if a version-history file exists in *folder*, else None."""
+    for name in ("CHANGELOG.md", "version-history.md"):
+        path = folder / name
+        if path.is_file():
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                raise ContentError(f"{name} is not valid UTF-8")
+            blocks = parse(text)
+            return name, blocks[:MAX_VH_BLOCKS]
+    return None
+
+
 def build_document(project_root: Union[str, Path], document_dir: Union[str, Path]) -> BuildResult:
     """Build the PDF for one document folder (relative to project_root)."""
     root = Path(project_root).resolve(strict=True)
@@ -140,8 +201,20 @@ def build_document(project_root: Union[str, Path], document_dir: Union[str, Path
         raise ContentError(f"lint found {len(problems)} problem(s): {problems[0].message}", problems[0].line)
 
     font_checksums = register_fonts(root / "design-system" / "fonts", meta.font)
-    result = render_document(blocks, meta, brand, folder, rights_blocks)
-    again = render_document(blocks, meta, brand, folder, rights_blocks)
+
+    # C5.1 — Load findings registry if present
+    findings = load_findings_if_present(folder)
+
+    # C5.4 — Execute marked test code blocks
+    test_results = _execute_test_blocks(blocks)
+
+    # C5.5 — Load version history if present
+    vh = _load_version_history(folder)
+    vh_blocks = vh[1] if vh is not None else None
+    vh_name = vh[0] if vh is not None else None
+
+    result = render_document(blocks, meta, brand, folder, rights_blocks, vh_blocks)
+    again = render_document(blocks, meta, brand, folder, rights_blocks, vh_blocks)
     if again.pdf != result.pdf:
         raise EngineError("the document is not reproducible: two builds of the same input differ")
 
@@ -161,6 +234,10 @@ def build_document(project_root: Union[str, Path], document_dir: Union[str, Path
         inputs[f"brand/{brand.name}/forbidden.txt"] = sha256_file(forbidden_file)
     for relative in sorted(set(result.images)):
         inputs[relative] = sha256_file(resolve_inside(folder, relative))
+    if findings is not None:
+        inputs["findings.yaml"] = sha256_file(folder / "findings.yaml")
+    if vh_name is not None:
+        inputs[vh_name] = sha256_file(folder / vh_name)
 
     output_dir = folder / BUILD_DIR
     file_name = f"{meta.output_name}_v{meta.version}.pdf"
@@ -195,6 +272,10 @@ def build_document(project_root: Union[str, Path], document_dir: Union[str, Path
             "contrast": [[name, ratio] for name, ratio in result.contrast],
         },
     }
+    if findings is not None:
+        manifest["findings"] = findings
+    if test_results:
+        manifest["test_blocks"] = test_results
 
     _atomic_write(pdf_path, result.pdf)
     _atomic_write(manifest_path, (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"))
@@ -230,7 +311,9 @@ def check_document(project_root, document_dir):
     problems = lint(blocks, load_forbidden_terms(brand.logo_path.parent), meta.profile)
     rights_blocks = parse(brand.rights_path.read_text(encoding="utf-8"))
     register_fonts(root / "design-system" / "fonts", meta.font)
-    pages = render_document(blocks, meta, brand, folder, rights_blocks).pages
+    vh = _load_version_history(folder)
+    vh_blocks = vh[1] if vh is not None else None
+    pages = render_document(blocks, meta, brand, folder, rights_blocks, vh_blocks).pages
     return problems, pages
 
 

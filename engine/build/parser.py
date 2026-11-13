@@ -26,6 +26,7 @@ CALLOUT_KINDS = ("NOTE", "WARNING", "TIP", "KEY", "CHECKPOINT", "OBJECTIVES", "E
 _REF_ID = re.compile(r"^[a-z][a-z0-9-]{0,39}$")
 _ATTRS = re.compile(r"\s*\{([^{}]*)\}\s*$")
 _CALLOUT = re.compile(r"^(" + "|".join(CALLOUT_KINDS) + r"):\s*(\S.*)$", re.DOTALL)
+_TRAILING_CHARS = ".,;:!?)]}"
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,20 @@ class PageBreak(Block):
     pass
 
 
+@dataclass(frozen=True)
+class References(Block):
+    """A numbered reference list.  Each entry is (text, optional_url)."""
+
+    items: Tuple[Tuple[str, Optional[str]], ...]
+
+
+@dataclass(frozen=True)
+class Glossary(Block):
+    """A glossary.  Each entry is (term, definition)."""
+
+    entries: Tuple[Tuple[str, str], ...]
+
+
 def _check_text(text: str, line: int) -> None:
     if _HTML.search(text):
         raise ContentError("raw HTML is not allowed", line)
@@ -138,6 +153,8 @@ def _is_block_start(line: str) -> bool:
     return bool(
         line.startswith("~~~")
         or stripped == "PAGEBREAK"
+        or stripped == "REFERENCES:"
+        or stripped.startswith("GLOSSARY:")
         or stripped.startswith("IMG:")
         or stripped.startswith("TABLE:")
         or stripped.startswith("|")
@@ -268,6 +285,54 @@ def parse(text: str) -> List[Block]:
                 index += 1
             if index >= count or not lines[index].strip().startswith("|"):
                 raise ContentError("a TABLE: line must be followed by a table", number)
+            continue
+
+        if stripped == "REFERENCES:":
+            ref_line = number
+            index += 1
+            while index < count and not lines[index].strip():
+                index += 1
+            ref_items: List[Tuple[str, Optional[str]]] = []
+            while index < count and lines[index].strip() and not _HEADING.match(lines[index]) and not lines[index].startswith("~~~"):
+                entry_line = lines[index]
+                entry_number = index + 1
+                entry_text = entry_line.strip()
+                # Strip optional "N. " prefix.
+                m = _NUMBERED.match(entry_text)
+                if m:
+                    entry_text = m.group(1).strip()
+                _check_text(entry_text, entry_number)
+                url: Optional[str] = None
+                url_match = re.search(r"https?://\S+$", entry_text)
+                if url_match:
+                    url = url_match.group(0).rstrip(_TRAILING_CHARS)
+                    entry_text = entry_text[: url_match.start()].rstrip()
+                if not entry_text:
+                    raise ContentError("a reference entry must not be empty", entry_number)
+                ref_items.append((entry_text, url))
+                index += 1
+            if not ref_items:
+                raise ContentError("REFERENCES: must be followed by at least one entry", ref_line)
+            blocks.append(References(line=ref_line, items=tuple(ref_items)))
+            continue
+
+        if stripped.startswith("GLOSSARY:"):
+            gloss_line = number
+            gloss_entries: List[Tuple[str, str]] = []
+            while index < count and lines[index].strip().startswith("GLOSSARY:"):
+                entry_number = index + 1
+                rest = lines[index].strip()[len("GLOSSARY:"):]
+                parts = [part.strip() for part in rest.split("|", 1)]
+                if len(parts) != 2 or not parts[0] or not parts[1]:
+                    raise ContentError("glossary syntax is GLOSSARY: term | definition", entry_number)
+                term, definition = parts
+                _check_text(term, entry_number)
+                _check_text(definition, entry_number)
+                gloss_entries.append((term, definition))
+                index += 1
+            if not gloss_entries:
+                raise ContentError("GLOSSARY: must have at least one entry", gloss_line)
+            blocks.append(Glossary(line=gloss_line, entries=tuple(gloss_entries)))
             continue
 
         heading = _HEADING.match(line)

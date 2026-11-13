@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.12 - November 2026 (C5: Findings, references, series, test execution, version history, glossary)
+
+- Findings registry: optional findings.yaml in the document folder (list of objects with id, status, source, text); loaded and recorded in the manifest if present; malformed entries rejected with line-numbered errors; existing documents without findings.yaml are unchanged
+- Reference list: REFERENCES: block in content.md (numbered items, optional URLs); rendered as a numbered list at the end of the body before the rights chapter; URLs auto-extracted and made clickable (http/https only)
+- Series support: optional series and series_number keys in meta.yaml; when both present, "Series: NAME — Document N" appears in the imprint; no default, no maximum, no assumption of 16; existing documents without these keys are unchanged
+- Test code execution: code blocks whose language is exactly "test" are executed in a restricted subprocess during build (timeout 10s, no network env, never other languages); exit code and short output stored in the manifest; non-zero exit fails the build; Session 01 unaffected (no test blocks)
+- Version history: if the document folder contains CHANGELOG.md or version-history.md, a "Version History" section is rendered before the rights chapter; keeps it short, does not invent content; existing documents without these files are unchanged
+- Glossary links: GLOSSARY: term | definition lines in content.md; terms become internal link targets; occurrences of the exact term in body text (paragraphs, callouts, list items) become clickable links to the definition; rendered before the rights chapter; unknown terms stay plain text; inline code and existing references are not modified
+- 33 new tests in engine/tests/test_c5.py (findings 8, references 4, series 8, test execution 4, version history 3, glossary 6)
+- No change to release security, brand, agents or audit thresholds; release delivery remains hard-disabled
+
 ## 0.5.11 - November 2026 (Layout keep-together, continuation markers, review command)
 
 - Intro paragraphs (up to 3 consecutive, each ≤ 240 characters) immediately before an image or diagram are kept with the visual via keepWithNext on the last qualifying paragraph and a CondPageBreak before the group; tables and code blocks are not wrapped; existing scale logic applies when the visual does not fit on a fresh page

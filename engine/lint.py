@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Sequence, Tuple
 
 from .build.parser import (
-    Block, BulletList, Callout, Code, Diagram, Heading, Image, NumberedList, Paragraph, Table,
+    Block, BulletList, Callout, Code, Diagram, Glossary, Heading, Image, NumberedList, Paragraph, References, Table,
 )
 from .errors import ConfigError
 
@@ -66,6 +66,10 @@ def block_texts(block: Block) -> List[str]:
         for layer in spec.layers:
             texts += [layer.name, layer.text]
         return texts + ([block.caption] if block.caption else [])
+    if isinstance(block, References):
+        return [text for text, _ in block.items]
+    if isinstance(block, Glossary):
+        return [term for term, _ in block.entries] + [defn for _, defn in block.entries]
     return []
 
 

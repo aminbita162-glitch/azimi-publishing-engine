@@ -13,7 +13,7 @@ import yaml
 from ..errors import ConfigError
 
 REQUIRED_KEYS = ("title", "author", "audience", "language", "version", "date", "output_name")
-OPTIONAL_KEYS = ("subtitle", "brand", "chapter_pages", "numbered", "font", "profile", "keywords")
+OPTIONAL_KEYS = ("subtitle", "brand", "chapter_pages", "numbered", "font", "profile", "keywords", "series", "series_number")
 DEFAULT_BRAND = "default"
 
 _LANGUAGE = re.compile(r"^[a-z]{2,3}(-[A-Z]{2})?$")
@@ -44,6 +44,8 @@ class Meta:
     font: str = "carlito"
     profile: str = "plain"
     keywords: Optional[str] = None
+    series: Optional[str] = None
+    series_number: Optional[int] = None
 
     @property
     def epoch(self) -> int:
@@ -129,9 +131,23 @@ def parse_meta(data: Any) -> Meta:
         keywords = _text(data, "keywords")
         if len(keywords) > 300:
             raise ConfigError("meta.yaml: keywords exceed 300 characters")
+    series = None
+    series_number = None
+    if "series" in data:
+        series = _text(data, "series")
+        if len(series) > 200:
+            raise ConfigError("meta.yaml: series exceeds 200 characters")
+    if "series_number" in data:
+        sn = data["series_number"]
+        if not isinstance(sn, int) or isinstance(sn, bool) or sn < 1:
+            raise ConfigError("meta.yaml: series_number must be a positive integer")
+        series_number = sn
+    if series_number is not None and series is None:
+        raise ConfigError("meta.yaml: series_number requires series")
     return Meta(
         subtitle=subtitle, brand=brand, chapter_pages=chapter_pages, numbered=numbered,
-        font=font, profile=profile, keywords=keywords, **values,
+        font=font, profile=profile, keywords=keywords, series=series, series_number=series_number,
+        **values,
     )
 
 
