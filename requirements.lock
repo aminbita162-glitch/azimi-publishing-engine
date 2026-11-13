@@ -1,0 +1,7 @@
+# requirements.lock — SHA-256 hashes of Python package METADATA files
+# Verify with: python3 -m engine build <document> (fails with exit 2 on mismatch)
+reportlab==5.1.0 sha256=86667f600392d769e71fa5922887c9b1366f2393aced8bea31e72542088a9cca
+pypdf==6.21.4 sha256=383b3d4cd588005f67afc74b113cbe19ea008691cdf18db3795601116a3d8139
+Pillow==13.0.0 sha256=dba7fdfe24e302f46bae562f55d66cc367c0618abae9894a1ebec93dc8f0e511
+PyYAML==6.0.3 sha256=03c3b415ed38d09faedc49360e930769b40c58f68585e6de00e2e4916a858d34
+pikepdf==10.17.0 sha256=b0575145c7c05ff205b449b2dac58317c28245fefa9fe267c7f606b3ef5e6634

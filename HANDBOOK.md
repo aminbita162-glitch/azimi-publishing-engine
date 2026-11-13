@@ -71,6 +71,8 @@ The document date is the only date the engine uses. It fixes the PDF timestamp, 
 | tickets/ | The tickets and the files the agents exchange (TEMPLATE.txt is the form) |
 | agents/ | The complete role definition of each agent (amilus.txt, ali.txt, lili.txt) and SHA256SUMS for them |
 | requirements.txt | Pinned Python libraries |
+| requirements.lock | SHA-256 hashes of installed Python packages (supply-chain lock) |
+| fonts.lock | SHA-256 hashes of bundled font files (supply-chain lock) |
 | documentation/content-format.md | The only accepted input format |
 | engine/ | The program: paths, schemas, parser, lint, brand loader, renderer, diagrams, syntax coloring, audit, builder, tools, command line |
 | engine/tests/ | The automated tests of the engine |
@@ -172,3 +174,17 @@ Every change needs a test, an entry in CHANGELOG.md and, for each verification, 
 | the document is not reproducible | Two builds differ; report it, do not release |
 | the audit failed | Read the failing A-lines; a diagram or table that does not fit often leaves a page too empty |
 | previews need PyMuPDF or pdftoppm | Install one of them; builds do not need them |
+| lock verification failed | A locked hash in requirements.lock or fonts.lock does not match the installed package or bundled font; do not edit the lock file by hand — regenerate it |
+
+## 17. Supply chain and locked hashes (C6)
+
+The engine builds offline. No build, audit or test step makes a network call; the build module imports no network library. Code blocks whose language is exactly `test` run in a subprocess where `socket.socket` and `socket.create_connection` are monkey-patched to raise `OSError`, so no test block can reach the network either.
+
+Two lock files pin the supply chain:
+
+- `requirements.lock` lists every Python package with its version and the SHA-256 of its installed METADATA file. Before any build the engine verifies each entry against the locally installed package and fails with exit 2 on mismatch. No file is downloaded.
+- `fonts.lock` lists every bundled font file with its SHA-256. The same verification runs before every build.
+
+When both lock files are present and all hashes match, a CycloneDX JSON SBOM (`bomFormat: CycloneDX`, `specVersion: 1.5`) is written to the build folder alongside the PDF and manifest. It lists every Python package and every bundled font with its SHA-256. The manifest records the SBOM file name, its SHA-256 and `present: true`. When no `requirements.lock` exists the SBOM is omitted and the manifest records `present: false` with an explicit note; the document still builds.
+
+The build command accepts an optional `--renderer` flag (default `reportlab`). Selecting `pymupdf` requires the PyMuPDF package to be installed beforehand; if it is not, the build fails with a clear message and the engine never installs it automatically. PyMuPDF is not a required dependency. The default path is pure ReportLab with zero behavior change.

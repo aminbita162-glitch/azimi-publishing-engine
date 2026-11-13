@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 - November 2026 (C6: SBOM, locked hashes, supply chain, optional PyMuPDF alternative)
+
+- SBOM: on every successful build, a CycloneDX JSON SBOM (bomFormat, specVersion 1.5, components with SHA-256 hashes) is generated from requirements.lock and fonts.lock and written to the document build folder; its path and SHA-256 are recorded in the manifest; existing documents without requirements.lock still build with the SBOM omitted and an explicit note in the manifest
+- Locked hashes: requirements.lock and fonts.lock pin every Python package and bundled font with an exact SHA-256; before any build the engine verifies each locked file against its hash and fails immediately (exit 2) on mismatch; all verification is local — no network access, no downloads
+- Supply-chain enforcement: ```test code blocks executed during the build run with socket.socket and socket.create_connection monkey-patched to raise OSError, so no network call can leave the build process; the build module itself imports no network library; the offline guarantee is documented in HANDBOOK section 17
+- Optional PyMuPDF alternative: the build command accepts --renderer (default reportlab); if pymupdf is selected and the package is not installed, the build fails with a clear message that says to install it manually — the engine never installs packages automatically; the default path is pure ReportLab with zero behavior change; PyMuPDF is not a required dependency
+- 23 new tests in engine/tests/test_c6.py (SBOM 6, locked hashes 6, supply chain 4, renderer 7)
+- No change to release security, brand, agents, audit thresholds or the default rendering path; release delivery remains hard-disabled
+
 ## 0.5.12 - November 2026 (C5: Findings, references, series, test execution, version history, glossary)
 
 - Findings registry: optional findings.yaml in the document folder (list of objects with id, status, source, text); loaded and recorded in the manifest if present; malformed entries rejected with line-numbered errors; existing documents without findings.yaml are unchanged

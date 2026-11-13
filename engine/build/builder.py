@@ -35,6 +35,19 @@ TEST_TIMEOUT = 10
 MAX_TEST_OUTPUT = 500
 MAX_VH_BLOCKS = 30
 
+# C6.3 — Network block preamble: monkey-patch socket in the test-block subprocess
+# so any attempt to open a network connection raises OSError.  The build process
+# itself never makes network calls; this enforces the same guarantee for
+# ````test`` code blocks executed during the build.
+_NETWORK_BLOCK_PREAMBLE = (
+    "import socket as _sock\n"
+    "def _blocked(*a, **k):\n"
+    "    raise OSError('network access blocked: offline build')\n"
+    "_sock.socket = _blocked\n"
+    "_sock.create_connection = _blocked\n"
+    "del _sock, _blocked\n"
+)
+
 
 @dataclass(frozen=True)
 class BuildResult:
@@ -121,7 +134,7 @@ def _execute_test_blocks(blocks: List) -> List[Dict]:
     for block in blocks:
         if not (isinstance(block, Code) and block.language == "test"):
             continue
-        code = "\n".join(block.lines)
+        code = _NETWORK_BLOCK_PREAMBLE + "\n".join(block.lines)
         try:
             proc = subprocess.run(
                 [sys.executable, "-c", code],
@@ -165,12 +178,164 @@ def _load_version_history(folder: Path) -> Optional[tuple]:
     return None
 
 
-def build_document(project_root: Union[str, Path], document_dir: Union[str, Path]) -> BuildResult:
+# --------------------------------------------------------------------------- #
+# C6.2 — Locked hashes: verify requirements.lock and fonts.lock before build
+# --------------------------------------------------------------------------- #
+
+def _sha256_path(path: Path) -> str:
+    """SHA-256 of a file's bytes."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _verify_locks(root: Path) -> Optional[Dict]:
+    """Verify requirements.lock and fonts.lock against installed packages and fonts.
+
+    Returns a dict ``{"packages": [...], "fonts": {name: hash}}`` if
+    requirements.lock exists, or ``None`` if it does not (existing documents
+    without lock files still build).
+
+    Raises ConfigError on any mismatch (version, hash, missing file).
+    All verification is local; no network access is needed.
+    """
+    lock_path = root / "requirements.lock"
+    if not lock_path.is_file():
+        return None
+
+    import importlib.metadata as ilm
+
+    errors: List[str] = []
+    packages: List[Dict] = []
+
+    for line in lock_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) != 2 or "==" not in parts[0] or not parts[1].startswith("sha256="):
+            errors.append(f"invalid lock line: {line}")
+            continue
+        name_version = parts[0]
+        expected_hash = parts[1][len("sha256="):]
+        name, _, version = name_version.partition("==")
+        try:
+            dist = ilm.distribution(name)
+        except ilm.PackageNotFoundError:
+            errors.append(f"locked package not installed: {name}")
+            continue
+        if dist.version != version:
+            errors.append(
+                f"version mismatch for {name}: locked {version}, installed {dist.version}"
+            )
+            continue
+        metadata_path = Path(getattr(dist, "_path")) / "METADATA"
+        if not metadata_path.is_file():
+            errors.append(f"cannot find METADATA for {name}")
+            continue
+        actual_hash = _sha256_path(metadata_path)
+        if actual_hash != expected_hash:
+            errors.append(f"hash mismatch for {name}")
+            continue
+        packages.append({"name": name, "version": version, "sha256": actual_hash})
+
+    font_hashes: Dict[str, str] = {}
+    fonts_lock_path = root / "fonts.lock"
+    if fonts_lock_path.is_file():
+        fonts_dir = root / "design-system" / "fonts"
+        for line in fonts_lock_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(maxsplit=1)
+            if len(parts) != 2:
+                errors.append(f"invalid fonts.lock line: {line}")
+                continue
+            expected, filename = parts
+            font_path = fonts_dir / filename
+            if not font_path.is_file():
+                errors.append(f"locked font not found: {filename}")
+                continue
+            actual = _sha256_path(font_path)
+            if actual != expected:
+                errors.append(f"hash mismatch for font {filename}")
+                continue
+            font_hashes[filename] = actual
+
+    if errors:
+        raise ConfigError(f"lock verification failed: {'; '.join(errors)}")
+
+    return {"packages": packages, "fonts": dict(sorted(font_hashes.items()))}
+
+
+# --------------------------------------------------------------------------- #
+# C6.1 — SBOM: CycloneDX JSON from lock data
+# --------------------------------------------------------------------------- #
+
+def _generate_sbom(lock_data: Optional[Dict], version: str) -> Optional[Dict]:
+    """Generate a CycloneDX JSON SBOM from lock data.
+
+    Returns ``None`` when ``lock_data`` is ``None`` (no requirements.lock —
+    SBOM omitted with an explicit note in the manifest).
+    """
+    if lock_data is None:
+        return None
+
+    components: List[Dict] = []
+    for pkg in lock_data["packages"]:
+        components.append(
+            {
+                "type": "library",
+                "name": pkg["name"],
+                "version": pkg["version"],
+                "purl": f"pkg:pypi/{pkg['name'].lower()}@{pkg['version']}",
+                "hashes": [{"alg": "SHA-256", "content": pkg["sha256"]}],
+            }
+        )
+    for fname, fhash in lock_data["fonts"].items():
+        components.append(
+            {
+                "type": "file",
+                "name": fname,
+                "hashes": [{"alg": "SHA-256", "content": fhash}],
+            }
+        )
+
+    return {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {
+            "tools": [{"name": "Azimi Publishing Engine", "version": version}],
+        },
+        "components": components,
+    }
+
+
+def build_document(
+    project_root: Union[str, Path], document_dir: Union[str, Path], renderer: str = "reportlab"
+) -> BuildResult:
     """Build the PDF for one document folder (relative to project_root)."""
     root = Path(project_root).resolve(strict=True)
     folder = resolve_inside(root, document_dir)
     if not folder.is_dir():
         raise ConfigError(f"document folder not found: {document_dir}")
+
+    # C6.4 — Validate renderer choice (default reportlab; zero behavior change)
+    if renderer not in ("reportlab", "pymupdf"):
+        raise ConfigError(
+            f"unknown renderer '{renderer}'; available: reportlab, pymupdf"
+        )
+    if renderer == "pymupdf":
+        try:
+            import pymupdf  # noqa: F401
+        except ImportError:
+            raise ConfigError(
+                "renderer 'pymupdf' requires the pymupdf package; "
+                "install it manually (pip install pymupdf); "
+                "the engine never installs packages automatically"
+            )
+
+    # C6.2 — Verify locked hashes before any build (exit 2 on mismatch)
+    lock_data = _verify_locks(root)
 
     meta = load_meta(resolve_inside(folder, "meta.yaml"))
 
@@ -276,6 +441,24 @@ def build_document(project_root: Union[str, Path], document_dir: Union[str, Path
         manifest["findings"] = findings
     if test_results:
         manifest["test_blocks"] = test_results
+
+    # C6.1 — Generate and write SBOM (CycloneDX JSON) to the build folder
+    sbom = _generate_sbom(lock_data, __version__)
+    if sbom is not None:
+        sbom_name = file_name + ".sbom.json"
+        sbom_path = output_dir / sbom_name
+        sbom_bytes = (json.dumps(sbom, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        manifest["sbom"] = {
+            "file": sbom_name,
+            "sha256": sha256_bytes(sbom_bytes),
+            "present": True,
+        }
+        _atomic_write(sbom_path, sbom_bytes)
+    else:
+        manifest["sbom"] = {
+            "present": False,
+            "note": "no requirements.lock found; SBOM omitted",
+        }
 
     _atomic_write(pdf_path, result.pdf)
     _atomic_write(manifest_path, (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"))

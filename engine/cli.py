@@ -50,6 +50,10 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     build = commands.add_parser("build", help="build the PDF of one document folder")
     build.add_argument("path", help="document folder containing meta.yaml and content.md")
+    build.add_argument(
+        "--renderer", default="reportlab", choices=["reportlab", "pymupdf"],
+        help="PDF renderer (default: reportlab)",
+    )
     check = commands.add_parser("check", help="validate and lint a document without writing anything")
     check.add_argument("path")
     verify = commands.add_parser("verify", help="check a built PDF against its manifest and run the audit again")
@@ -190,7 +194,7 @@ def main(argv: Optional[List[str]] = None, root: Optional[Path] = None) -> int:
             for image in render_previews(pdf, folder / BUILD_DIR / "preview", pages):
                 print(f"Preview   : {image}")
             return 0
-        result = build_document(project_root, relative)
+        result = build_document(project_root, relative, renderer=getattr(args, "renderer", "reportlab"))
     except EngineError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

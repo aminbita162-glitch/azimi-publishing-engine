@@ -1,0 +1,7 @@
+# fonts.lock — SHA-256 hashes of bundled font files in design-system/fonts/
+bb5d20f79b82599ec72983597437373a80f2d2085fa91fc144fd74e876a594db  Carlito-Bold.ttf
+b32928186c119599e03ca6a1ffc680fdcb7fac95772f4b95d989cf6cd3861517  Carlito-BoldItalic.ttf
+0b019225e58d702bfedcbd35c21696769f8ee115cb6343f84c2f240312450d1c  Carlito-Italic.ttf
+f6418f708baede9789daef5d458c0f53d2a888af9820e8062934e504fedc6595  Carlito-Regular.ttf
+626655e94dd82f3f42549daf995c921b0915fa8ab1f4b839559e8892ea41d240  LiberationMono-Bold.ttf
+395fa5ab8d40c8eba390ced528744ea75a7f69aabf3e68b6f925ca0e39a27370  LiberationMono-Regular.ttf
