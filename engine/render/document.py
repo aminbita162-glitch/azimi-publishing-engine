@@ -64,7 +64,7 @@ from .fonts import check_glyphs
 from .highlight import NUMBERED_LANGUAGES, PLAIN, classify, normalize_language
 from .highlight import to_markup as highlight_markup
 from .xmp import apply_xmp
-from .inline import LINK_COLOR, reference_ids, to_markup, to_plain
+from .inline import LINK_COLOR, NBSP, reference_ids, to_markup, to_plain
 from .styles import (
     CHECKPOINT,
     CODE_BACKGROUND,
@@ -214,20 +214,20 @@ def analyze(blocks: Sequence[Block], numbered: bool, known: Optional[Dict[str, s
                 number = ".".join(str(n) for n in counters[: block.level])
             headings[position] = number
             if number:
-                label = f"Chapter {number}" if block.level == 1 else f"Section {number}"
+                label = f"Chapter{NBSP}{number}" if block.level == 1 else f"Section{NBSP}{number}"
             else:
-                label = '"' + to_plain(block.text, block.line) + '"'
+                label = "\u201c" + to_plain(block.text, block.line) + "\u201d"
             register(block.ref_id, label, block.line)
         elif isinstance(block, (ImageBlock, DiagramBlock)) and block.caption:
             figure += 1
             figures[position] = figure
             figure_entries.append((figure, block.caption))
-            register(block.ref_id, f"Figure {figure}", block.line)
+            register(block.ref_id, f"Figure{NBSP}{figure}", block.line)
         elif isinstance(block, TableBlock) and block.caption:
             table += 1
             tables[position] = table
             table_entries.append((table, block.caption))
-            register(block.ref_id, f"Table {table}", block.line)
+            register(block.ref_id, f"Table{NBSP}{table}", block.line)
     return Analysis(headings, figures, tables, refs, tuple(figure_entries), tuple(table_entries))
 
 
@@ -741,7 +741,7 @@ def short_caption(text: str) -> str:
 def _caption_markup(label: str, number: int, text: str, line: int, refs: Dict[str, str], ref_id: Optional[str]) -> str:
     check_glyphs(text, "Body", line)
     anchor = f'<a name="{ref_id}"/>' if ref_id else ""
-    return f"{anchor}{label} {number}. {to_markup(text, line, refs)}"
+    return f"{anchor}{label}{NBSP}{number}. {to_markup(text, line, refs)}"
 
 
 def _image_flowable(
@@ -754,7 +754,7 @@ def _image_flowable(
     if block.caption and number is not None:
         markup = _caption_markup("Figure", number, block.caption, block.line, refs, block.ref_id)
         caption = Paragraph(markup, styles.caption)
-        entry = ("LOFEntry", f"Figure {number}. {short_caption(to_plain(block.caption, block.line))}", f"list-figure-{number}")
+        entry = ("LOFEntry", f"Figure{NBSP}{number}. {short_caption(to_plain(block.caption, block.line))}", f"list-figure-{number}")
     return [Figure(source, width, height, caption, entry)]
 
 
@@ -767,7 +767,7 @@ def _diagram_flowable(
     if block.caption and number is not None:
         markup = _caption_markup("Figure", number, block.caption, block.line, refs, block.ref_id)
         caption = Paragraph(markup, styles.caption)
-        entry = ("LOFEntry", f"Figure {number}. {short_caption(to_plain(block.caption, block.line))}", f"list-figure-{number}")
+        entry = ("LOFEntry", f"Figure{NBSP}{number}. {short_caption(to_plain(block.caption, block.line))}", f"list-figure-{number}")
     flowable = DiagramFlowable(layout, caption, block.caption or "")
     flowable.list_entry = entry
     return [flowable]
@@ -776,7 +776,7 @@ def _diagram_flowable(
 def _table_caption(block: TableBlock, styles: Styles, number: int, refs: Dict[str, str]) -> Paragraph:
     markup = _caption_markup("Table", number, block.caption or "", block.line, refs, block.ref_id)
     return CaptionParagraph(
-        markup, styles.table_caption, f"Table {number}. {short_caption(to_plain(block.caption or '', block.line))}",
+        markup, styles.table_caption, f"Table{NBSP}{number}. {short_caption(to_plain(block.caption or '', block.line))}",
         f"list-table-{number}",
     )
 

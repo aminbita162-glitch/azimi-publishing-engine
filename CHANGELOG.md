@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.10 - November 2026 (Typography)
+
+- Curly double and single quotation marks and apostrophes in running text, and an en dash for a spaced hyphen; applied by the renderer only, the content files are unchanged; never applied in code blocks, inline code or URLs
+- Non-breaking space between Figure, Table, Chapter, Section and their numbers in headings, captions and the lists of figures and tables; audit check A10 accepts it
+- 9 new tests in engine/tests/test_typography.py, 5 test assertions updated for the new characters
+- No change to release security, brand or agents; release delivery remains hard-disabled
+
 ## 0.5.9 - November 2026 (PDF standards, metadata and navigation)
 
 - XMP metadata packet in every PDF (title, author, description, language, rights, producer, creator tool, fixed dates from the document month); written with pikepdf; no conformance claim of any kind
