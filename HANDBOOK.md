@@ -1,8 +1,8 @@
 # Azimi Publishing Engine - Handbook
 
-STATUS: ACTIVE DEVELOPMENT. This project is not finished and is not ready for production use. Read section 14 for what is missing.
+STATUS: ACTIVE DEVELOPMENT COMPLETE. The engine is a general-purpose PDF builder. Production release remains disabled pending separate owner authorization. Read section 14 for what is not built.
 
-This handbook is both the introduction and the user manual. Whoever opens the project should be able to read it from start to end and know what the project is, what it is not, how it works, and how to build a PDF with it. Version of the engine described here: 0.5.0, November 2026.
+This handbook is both the introduction and the user manual. Whoever opens the project should be able to read it from start to end and know what the project is, what it is not, how it works, and how to build a PDF with it. Version of the engine described here: 0.6.1, November 2026.
 
 ## 1. What this project is
 
@@ -106,6 +106,15 @@ The tests must pass before you build anything.
 11. Deliver a draft copy: python3 -m engine deliver draft courses/my-document (goes to the Drafts folder of the output folder, after a passing verify).
 12. Release: the owner writes a file RELEASE_APPROVAL.txt in the document folder with one line, APPROVED followed by the SHA-256 of the PDF, then runs python3 -m engine deliver release courses/my-document. A release is never overwritten with different content.
 
+The complete lifecycle in four commands (each returns exit 0 on success):
+
+    python3 -m engine check courses/my-document
+    python3 -m engine build courses/my-document
+    python3 -m engine verify courses/my-document
+    python3 -m engine review courses/my-document
+
+The review command runs all four in order and writes a machine-readable JSON report (review-report.json) to the build folder. The build verifies requirements.lock and fonts.lock before rendering, generates a CycloneDX SBOM, and renders twice to confirm reproducibility — all offline.
+
 Exit status: 0 success, 2 input error, 3 audit failure.
 
 ## 9. Fonts, logo, rights and forbidden terms
@@ -154,11 +163,11 @@ Not claimed: PDF/UA (tagged, accessible PDF) and PDF/A (archival). ReportLab can
 
 ## 14. Status and roadmap
 
-Built and tested: everything in sections 4 and 5, the commands in section 8, the audit in section 10.
+Built and tested: everything in sections 4 and 5, the commands in section 8, the audit in section 10, the supply chain and SBOM in section 17, the layout and review features (C4), the content features (C5: findings, references, series, test execution, version history, glossary), and the supply-chain features (C6: SBOM, locked hashes, offline enforcement, optional PyMuPDF renderer). Active development is complete as of 2026-11-14.
 
 Not built: agents that run inside the engine (the three agents exist as role definitions in agents/ and run in an external app on the owner's computer, see AGENTS.md); a gate command and JSON output; quality filters Q01 to Q30 as executable checks beyond the audit; PDF/UA tagging; PDF/A output; further bundled font families; hyphenation; right-to-left and non-Latin scripts; container packaging; a desktop product for users without a development agent; continuous integration. PyMuPDF, which can be used for previews, has a license (AGPL or commercial) that must be reviewed before the engine is distributed commercially.
 
-Planned content: 16 sessions of the Agentic AI Masterclass, built one by one, named as a numbered series of Azimi Innovation Lab documents. The sessions currently in the courses folder are trials until they are approved.
+Planned content: sessions 02 to 16 of the Agentic AI Masterclass, built one by one. Session 01 in courses/ is a validated sample of the engine, not a production release.
 
 ## 15. How to change the project
 

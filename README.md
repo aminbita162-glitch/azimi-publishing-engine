@@ -1,7 +1,7 @@
 # Azimi Publishing Engine
 
-> # ACTIVE DEVELOPMENT - UNFINISHED - PRODUCTION RELEASE DISABLED
-> The engine builds and audits PDFs from the terminal today. Several planned parts do not exist yet. The exact list is under Roadmap.
+> # ACTIVE DEVELOPMENT COMPLETE — Production release remains disabled pending separate owner authorization
+> The engine builds and audits PDFs from the terminal. It is a general-purpose PDF engine; the 16-session Agentic AI Masterclass in courses/ is a sample. See Roadmap for what is not built.
 
 Deterministic, standards-driven engine for producing publication-grade PDF documents.
 
@@ -13,7 +13,7 @@ Start with HANDBOOK.md. It explains what this project is and is not, how it work
 
 Azimi Publishing Engine turns a structured content folder into a branded PDF with a manifest and an audit report. It is built to typeset the 16-session Agentic AI Masterclass for senior engineers and later educational or commercial documents.
 
-## What works today (version 0.5.8, November 2026)
+## What works today (version 0.6.1, November 2026)
 
 - Strict input format with line-numbered errors; lint for forbidden terms, repeated words and course structure
 - Numbered chapters, sections, figures and tables with automatic cross-references, lists of figures and tables
@@ -23,6 +23,11 @@ Azimi Publishing Engine turns a structured content folder into a branded PDF wit
 - Brand folder (logo, colors, rights) and selectable font families with checksum verification
 - Reproducibility check on every build (two renders compared) and a manifest with inputs, tool versions and checksums
 - Audit A1 to A16 on every build; a failed audit stops the release
+- Keep-together for intro paragraphs before visuals; continuation markers for code and tables that split across pages
+- Unified review command (check, build, verify, audit in one step with a JSON report)
+- Findings registry, reference lists, series numbering, version history, glossary cross-references
+- CycloneDX SBOM on every build; locked hashes (requirements.lock, fonts.lock) verified before every build; offline guarantee enforced
+- Optional PyMuPDF renderer alternative (--renderer flag; default ReportLab with zero behavior change)
 - Commands: build, check, verify, review, new, preview, fonts, agents, deliver, ticket
 
 ## What this project is not
@@ -67,7 +72,9 @@ Exit status: 0 success, 2 input error, 3 audit failure.
 
 ## Roadmap
 
-Not built yet, in the order currently planned:
+The engine is a general-purpose PDF builder. Active development is complete as of 2026-11-14. The 16-session Agentic AI Masterclass in courses/ is a sample; it does not limit the engine to one course. Further changes require a new owner-approved plan.
+
+Not built, in the order previously planned:
 
 1. Quality filters Q01 to Q30 as executable checks, extending the audit
 2. Agents inside the product: the three agents are defined (agents/) and run in an external app on the owner's computer since November 2026. Still to build: a gate command, JSON output and built-in agents for users who do not have that app
@@ -76,7 +83,7 @@ Not built yet, in the order currently planned:
 5. Continuous integration
 6. Container packaging for local use
 7. Desktop distribution for users without a development agent; the license of the optional preview tool PyMuPDF must be reviewed first
-8. Sessions 01 to 16 of the Agentic AI Masterclass, built one by one; the sessions in courses/ today are trials
+8. Sessions 02 to 16 of the Agentic AI Masterclass, built one by one; Session 01 in courses/ is a validated sample, not a production release
 
 ## Author
 

@@ -1,4 +1,4 @@
 [project]
 name = "azimi-publishing-engine"
-version = "0.6.0"
+version = "0.6.1"
 requires-python = ">=3.9"

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.1 - November 2026 (Phase 7: end-to-end integration and final closure)
+
+- Prerequisite attestation: C4 (3e4a32c), C5 (59c301b), C6 (eeac20a) commits verified on origin/main; local HEAD matches; README, HANDBOOK, CHANGELOG and TEST_LOG reconciled to version 0.6.0 with current commands, offline guarantee, SBOM and locked hashes
+- Scope frozen in README: the engine is a general-purpose PDF builder; the 16-session Agentic AI Masterclass in courses/ is a sample; active development complete 2026-11-14
+- One-command lifecycle verified on Session 01: check (exit 0), build (exit 0, 61 pages, 16/16), verify (exit 0), review (exit 0, JSON report); SBOM present; lock files verified; reproducible
+- 4 new integration tests in engine/tests/test_p7_integration.py (lifecycle, reproducibility, cross-product build, cross-product reproducibility)
+- Cross-product integration: a second document with flow diagram, table, image, code, callouts and rights chapter built and passed A1-A16 16/16, proving the engine is not limited to Session 01
+- Final assurance: 479 tests pass (1 warning); Session 01 rebuild 61 pages, A1-A16 16/16, A7 87% policy intact, reproducible; visual QA 2/4 vision-inspected (PARTIAL) + 3/4 PIL + pypdf, zero defects; no network imports in the build path
+- HANDBOOK section 8 updated with the complete four-command lifecycle sequence
+- DEVELOPMENT_MASTER_PLAN.txt retired: active development is complete; further changes require a new owner-approved plan
+- No change to release security, audit thresholds, agents, brand or the default rendering path; release delivery remains hard-disabled
+
 ## 0.6.0 - November 2026 (C6: SBOM, locked hashes, supply chain, optional PyMuPDF alternative)
 
 - SBOM: on every successful build, a CycloneDX JSON SBOM (bomFormat, specVersion 1.5, components with SHA-256 hashes) is generated from requirements.lock and fonts.lock and written to the document build folder; its path and SHA-256 are recorded in the manifest; existing documents without requirements.lock still build with the SBOM omitted and an explicit note in the manifest

@@ -1,3 +1,3 @@
 """Azimi Publishing Engine: deterministic production of publication-grade PDF documents."""
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
